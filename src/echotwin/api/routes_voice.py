@@ -5,7 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from ..exceptions import EchoTwinError
-from ..storage import state
+from ..services import jobs
+from ..workspace import get_store
 from . import service
 from .schemas import SynthesizeRequest, VoicePlanRequest
 
@@ -86,7 +87,7 @@ def create_voice_profile(payload: dict) -> dict:
 
     profile = VoiceProfile(**{k: v for k, v in payload.items() if k in VoiceProfile.model_fields})
     save_profile(profile)
-    state.set("last_voice_profile_id", profile.profile_id)
+    get_store().set_pointer("current_voice_profile", profile.profile_id)
     return {"profile_id": profile.profile_id}
 
 
@@ -200,7 +201,7 @@ def select_references(profile_id: str, payload: dict | None = None) -> dict:
 def voice_synthesize(req: SynthesizeRequest) -> dict:
     from ..voice.synthesis import synthesize
 
-    def _work() -> dict:
+    def _work(_ctx: jobs.JobContext) -> dict:
         result = synthesize(
             profile_id=req.profile_id,
             text=req.text,
@@ -211,5 +212,4 @@ def voice_synthesize(req: SynthesizeRequest) -> dict:
         )
         return result.model_dump()
 
-    job = service.JOBS.submit("voice_synthesis", _work)
-    return job.model_dump()
+    return jobs.submit("voice_synthesis", _work, heavy=True)

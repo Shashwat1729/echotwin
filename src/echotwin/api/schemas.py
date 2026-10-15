@@ -41,12 +41,25 @@ class DatasetPrepareRequest(BaseModel):
 
 class GenerateRequest(BaseModel):
     context: list[dict] = Field(description="chat turns [{'role','content'}]")
-    model: str = ""
+    engine: str = Field(default="", description="engine id; empty uses model or the n-gram engine")
+    model: str = Field(default="", description="model spec name; same as engine 'hf:<model>'")
     style_profile_path: str | None = None
     method: str = "style_fewshot"
     max_new_tokens: int = 128
     seed: int | None = None
     temperature: float = 0.7
+
+
+class EvalRequest(BaseModel):
+    method: str = "plain"
+    engine: str = "ngram"
+    model: str = ""
+    rag_k: int = 3
+    max_prompts: int = 50
+
+
+class TrainRequest(BaseModel):
+    model_config = {"extra": "allow"}  # remaining fields feed training.sft.TrainingConfig
 
 
 class GenerateResponse(BaseModel):

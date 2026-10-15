@@ -76,7 +76,13 @@ def _context(dataset_id: str) -> _Context:
     return ctx
 
 
-def reply(session: ChatSession, text: str, engine_id: str, method: str) -> ChatReply:
+def reply(
+    session: ChatSession,
+    text: str,
+    engine_id: str,
+    method: str,
+    cfg: GeneratorConfig | None = None,
+) -> ChatReply:
     if method not in CHAT_METHODS:
         raise ConfigurationError(f"Unknown chat method {method!r}; expected one of {CHAT_METHODS}")
     dataset_id = get_store().pointer("current_dataset")
@@ -96,7 +102,7 @@ def reply(session: ChatSession, text: str, engine_id: str, method: str) -> ChatR
         engine = registry.get_engine(engine_id, dataset_id=dataset_id)
     except ModelNotAvailableError as exc:
         return ChatReply("", engine_id, method, 0.0, exemplars, error=str(exc))
-    gen = engine.generate_full(messages, GeneratorConfig())
+    gen = engine.generate_full(messages, cfg or GeneratorConfig())
     if gen.error is None:
         session.history.extend(
             [{"role": "user", "content": text}, {"role": "assistant", "content": gen.text}]

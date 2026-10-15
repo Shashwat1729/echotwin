@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..exceptions import ArtifactNotFoundError, EchoTwinError, ExportValidationError
+from ..exceptions import ArtifactNotFoundError, ExportValidationError
 from ..ingestion import WhatsAppParser, load_export, participant_stats, pick_participant
 from ..ingestion.export_loader import conversation_id_from_name
 from ..ingestion.schema import Message
@@ -104,7 +104,7 @@ def select_author(name: str, import_id: str | None = None) -> str:
     messages, import_id = load_messages(import_id)
     sender_id = pick_participant(messages, name)
     if sender_id is None:
-        raise EchoTwinError(f"Participant {name!r} not found in this import.")
+        raise ArtifactNotFoundError(f"Participant {name!r} not found in this import.")
     store = get_store()
     with store.write():
         db.update_import_target(import_id, sender_id)

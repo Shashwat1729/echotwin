@@ -77,7 +77,7 @@ def test_full_data_pipeline(tmp_path):
     assert r.exit_code == 0
     assert "Typical length" in r.output
 
-    r = runner.invoke(app, ["evaluate", "baseline", "--method", "mock"])
+    r = runner.invoke(app, ["evaluate", "baseline", "--method", "plain"])
     assert r.exit_code == 0, r.output
 
 

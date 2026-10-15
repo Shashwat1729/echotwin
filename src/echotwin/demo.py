@@ -15,6 +15,7 @@ from .evaluation.baseline import heldout_prompts, run_baseline
 from .ingestion import WhatsAppParser, load_export, participant_stats, pick_participant
 from .ingestion.export_loader import conversation_id_from_name
 from .profiling.style_profile import build_style_profile, profile_prompt_fragment, save_profile
+from .services import imports
 from .settings import get_settings
 from .storage import db
 from .workspace import get_store
@@ -44,6 +45,7 @@ def run_demo(console) -> None:
     if target_id is None:
         raise RuntimeError(f"Synthetic demo is broken: participant {DEMO_AUTHOR!r} not found.")
     import_id = db.record_import(str(export), "demo", len(messages), target_id, {})
+    imports.save_messages(import_id, messages)
     store.set_pointer("current_import", import_id)
     store.set_pointer("current_author", target_id)
     console.print(f"3) target author: {DEMO_AUTHOR} ({target_id})")

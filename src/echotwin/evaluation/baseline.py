@@ -45,12 +45,10 @@ METHODS = [
     "few_shot",
     "style_fewshot",
     "style_rag",
-    "ngram",
     "sft",
     "lora",
     "style_rag_ft",
     "dpo",
-    "mock",
 ]
 
 RETRIEVAL_METHODS = {"style_rag", "style_rag_ft"}

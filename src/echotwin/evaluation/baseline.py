@@ -44,6 +44,7 @@ METHODS = [
     "few_shot",
     "style_fewshot",
     "style_rag",
+    "ngram",
     "sft",
     "lora",
     "style_rag_ft",
@@ -55,10 +56,13 @@ RETRIEVAL_METHODS = {"style_rag", "style_rag_ft"}
 
 
 def heldout_prompts(test_examples: list[TrainingExample], max_prompts: int = 100) -> list[dict]:
-    """Identical evaluation prompts from the held-out split."""
+    """Identical evaluation prompts from the held-out split.
+
+    Context turns are plain dicts (JSON-serializable for predictions files).
+    """
     prompts = []
     for ex in test_examples[:max_prompts]:
-        context = ex.messages[:-1]
+        context = [{"role": t.role, "content": t.content} for t in ex.messages[:-1]]
         prompts.append(
             {
                 "messages": context,

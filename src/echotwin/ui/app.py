@@ -233,7 +233,18 @@ def run_baseline(method: str, rag_k: int) -> str:
     prof_path = state.get("last_profile_id")
     if prof_path and Path(prof_path).exists():
         fragment = profile_prompt_fragment(load_profile(prof_path))
-    gen = MockGenerator([ex.messages[-1].content for ex in train[:5]], seed=7)
+    if method == "ngram":
+        from ..models.ngram import NGramGenerator, NGramModel
+
+        if not train:
+            return "Train split is empty; import multiple chats first."
+        gen = NGramGenerator(
+            NGramModel(order=3).train_texts([ex.messages[-1].content for ex in train]), seed=7
+        )
+        revision = "ngram-o3"
+    else:
+        gen = MockGenerator([ex.messages[-1].content for ex in train[:5]], seed=7)
+        revision = "mock-1"
     _records, path, report = run_baseline(
         method=method,
         generator=gen,
@@ -247,7 +258,7 @@ def run_baseline(method: str, rag_k: int) -> str:
             for ex in train[:5]
         ],
         output_dir=get_settings().artifacts_dir / "evaluations" / ds_id,
-        model_revision="mock-1",
+        model_revision=revision,
         retrieval_index=build_index_from_examples(all_examples)
         if method in RETRIEVAL_METHODS
         else None,
@@ -301,9 +312,26 @@ def chat_reply(user_text: str, method: str, history: list | None) -> tuple[str, 
         fragment = profile_prompt_fragment(load_profile(prof_path))
     prompt = {"messages": [{"role": "user", "content": user_text}]}
     messages = build_messages(method, prompt, fragment, few_shot, exemplars)
-    gen = MockGenerator(
-        [e["response"] for e in (exemplars or few_shot)] or ["haan, theek hai"], seed=1
-    )
+    from ..models.generation import TextGenerator
+
+    gen: TextGenerator
+    if method == "ngram" and ds_id:
+        from ..models.ngram import NGramGenerator, NGramModel
+
+        ds_dir = get_settings().artifacts_dir / "datasets" / ds_id
+        train_path = ds_dir / "train.jsonl"
+        if train_path.exists():
+            train_all = load_jsonl(train_path)
+            gen = NGramGenerator(
+                NGramModel(order=3).train_texts([ex.messages[-1].content for ex in train_all]),
+                seed=1,
+            )
+        else:
+            gen = MockGenerator(["haan, theek hai"], seed=1)
+    else:
+        gen = MockGenerator(
+            [e["response"] for e in (exemplars or few_shot)] or ["haan, theek hai"], seed=1
+        )
     reply = gen.generate(messages, GeneratorConfig())
     history = [
         *history,
@@ -588,7 +616,7 @@ def build_app():
 
         with gr.Tab("Evaluation"):
             method = gr.Dropdown(
-                ["zero_shot", "style_profile", "few_shot", "style_fewshot", "style_rag", "mock"],
+                ["zero_shot", "style_profile", "few_shot", "style_fewshot", "style_rag", "ngram", "mock"],
                 value="style_rag",
                 label="Method",
             )
@@ -601,7 +629,7 @@ def build_app():
             chat_state = gr.State([])
             user_box = gr.Textbox(label="You")
             chat_method = gr.Dropdown(
-                ["zero_shot", "style_profile", "few_shot", "style_fewshot", "style_rag"],
+                ["zero_shot", "style_profile", "few_shot", "style_fewshot", "style_rag", "ngram"],
                 value="style_rag",
                 label="Method",
             )

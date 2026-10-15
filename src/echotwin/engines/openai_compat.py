@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 import os
 import urllib.request
+from collections.abc import Callable
+from typing import Any
 from urllib.parse import urlparse
 
 from ..exceptions import ModelNotAvailableError
@@ -56,8 +58,9 @@ class OpenAICompatEngine(BaseEngine):
             method="POST",
         )
         # Loopback calls must not go through a system proxy.
+        open_: Callable[..., Any]
         if self._local:
-            open_ = urllib.request.build_opener(urllib.request.ProxyHandler({})).open
+            open_ =urllib.request.build_opener(urllib.request.ProxyHandler({})).open
         else:
             open_ = urllib.request.urlopen
         with open_(req, timeout=self.timeout) as resp:

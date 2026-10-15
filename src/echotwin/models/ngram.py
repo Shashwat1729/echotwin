@@ -54,7 +54,7 @@ class NGramModel(BaseModel):
     lengths: list[int] = Field(default_factory=list, description="training target word-lengths")
     n_targets: int = 0
 
-    def train_texts(self, texts: list[str]) -> "NGramModel":
+    def train_texts(self, texts: list[str]) -> NGramModel:
         vocab: Counter[str] = Counter()
         tables: dict[int, dict[tuple[str, ...], Counter[str]]] = {n: {} for n in range(1, self.order + 1)}
         lengths: list[int] = []
@@ -130,7 +130,7 @@ class NGramModel(BaseModel):
             if not dist:
                 break
             top = sorted(dist.items(), key=lambda kv: kv[1], reverse=True)[:k]
-            words, probs = zip(*top)
+            words, probs = zip(*top, strict=True)
             order = _sample_order(rng, words, probs, temp)
             nxt = None
             for candidate in order:
@@ -161,7 +161,7 @@ class NGramModel(BaseModel):
         return p
 
     @classmethod
-    def load(cls, path: str | Path) -> "NGramModel":
+    def load(cls, path: str | Path) -> NGramModel:
         return cls.model_validate_json(Path(path).read_text(encoding="utf-8"))
 
 
@@ -172,7 +172,7 @@ def _sample_order(
     if temp <= 0:
         return list(words)
     scaled = [math.exp(math.log(p + 1e-12) / temp) for p in probs]
-    remaining = list(zip(words, scaled))
+    remaining = list(zip(words, scaled, strict=True))
     order: list[str] = []
     while remaining:
         s = sum(sp for _, sp in remaining)
@@ -191,10 +191,7 @@ def _creates_repeat(generated: list[str], candidate: str, n: int) -> bool:
     if len(generated) < n - 1:
         return False
     new_gram = tuple([*generated[-(n - 1) :], candidate]) if n > 1 else (candidate,)
-    for i in range(len(generated) - n + 1):
-        if tuple(generated[i : i + n]) == new_gram:
-            return True
-    return False
+    return any(tuple(generated[i : i + n]) == new_gram for i in range(len(generated) - n + 1))
 
 
 def _detokenize(tokens: list[str]) -> str:

@@ -10,6 +10,7 @@ Design notes
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sqlite3
 import threading
@@ -91,10 +92,8 @@ class Store:
     def close(self) -> None:
         with self._lock:
             for c in self._all:
-                try:
+                with contextlib.suppress(sqlite3.Error):
                     c.close()
-                except sqlite3.Error:
-                    pass
             self._all.clear()
         self._local = threading.local()
 
@@ -117,7 +116,7 @@ class Store:
     def pointer(self, name: str) -> str | None:
         _check_pointer(name)
         row = self.conn().execute(
-            f"SELECT {name} AS v FROM workspace WHERE name='default'"  # noqa: S608 - validated
+            f"SELECT {name} AS v FROM workspace WHERE name='default'"
         ).fetchone()
         return row["v"] if row else None
 
@@ -125,7 +124,7 @@ class Store:
         _check_pointer(name)
         with self.write() as c:
             c.execute(
-                f"UPDATE workspace SET {name}=? WHERE name='default'",  # noqa: S608 - validated
+                f"UPDATE workspace SET {name}=? WHERE name='default'",
                 (value,),
             )
 
@@ -185,7 +184,7 @@ class Store:
                 cols.append(f"{k}=?")
                 vals.append(v)
         with self.write() as c:
-            c.execute(f"UPDATE job SET {', '.join(cols)} WHERE job_id=?", (*vals, job_id))  # noqa: S608
+            c.execute(f"UPDATE job SET {', '.join(cols)} WHERE job_id=?", (*vals, job_id))
 
     def job_get(self, job_id: str) -> dict | None:
         row = self.conn().execute("SELECT * FROM job WHERE job_id=?", (job_id,)).fetchone()

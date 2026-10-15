@@ -14,8 +14,9 @@ uv pip install --python .\.venv\Scripts\python.exe -e ".[voice,train,ui,lang,dev
 .\.venv\Scripts\echotwin.exe demo
 ```
 
-This parses the checked-in synthetic export, builds a dataset + style
-profile, and runs a `style_rag` mock baseline with a contamination report.
+This parses the checked-in synthetic multi-chat export, builds a dataset and
+style profile, and runs a `plain` n-gram baseline with a contamination report.
+The same sample loads from the studio's Home tab ("Load sample data").
 
 ## Your own data (local only)
 
@@ -36,7 +37,10 @@ tooling warns you instead of fabricating evaluation numbers.
 
 - CLI: `echotwin --help` (everything works offline except training/synthesis).
 - API: `echotwin serve` → http://127.0.0.1:8765/docs
-- UI: `python -m echotwin.ui` → http://127.0.0.1:7860 (localhost only)
+- UI: `python -m echotwin.ui` (or `echotwin ui`) → http://127.0.0.1:7860
+  (localhost only). A left rail walks Import → Author → Dataset → Profile →
+  Evaluate → Chat, with Voice and Settings alongside; long work runs as jobs
+  you can watch and cancel in the Jobs panel.
 - Colab: `notebooks/echotwin_demo.ipynb` runs the CPU demo end-to-end.
 
 ## Real training / voice (optional, heavy)

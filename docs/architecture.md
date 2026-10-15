@@ -88,10 +88,43 @@ never confused with the text LoRA pipeline.
 
 ## Runtime topology
 
-- **CLI** (`echotwin ...`): full pipeline, lazy heavy imports.
-- **API** (FastAPI, localhost default): validated schemas, sandboxed uploads,
-  background jobs for training/synthesis.
-- **UI** (Gradio, localhost default): every control calls the same library
-  functions as the CLI; long jobs poll status instead of blocking.
+```
+ CLI (Typer)      API (FastAPI)      UI (Gradio studio)
+      \                |                  /
+       +-------- services/ (use-cases) --+
+                  |            |
+              engines/      workspace/ (Store: SQLite pointers, jobs, kv)
+        ngram | hf | openai-compat        artifacts/ (JSONL, profiles, runs)
+```
+
+- **services/**: the only layer with use-case logic (`imports`, `datasets`,
+  `profiles`, `evaluation`, `chat`, `models`, `voice`, `jobs`). The CLI, API
+  and UI are thin adapters that call it and map typed `EchoTwinError`s to exit
+  codes, HTTP statuses (404 missing artifact, 403 consent, 409 engine
+  unavailable, 400 otherwise) or UI callouts.
+- **workspace/**: one `Store` per `ECHOTWIN_HOME`. Pointers (`current_import`,
+  `current_author`, `current_dataset`, `current_profile`,
+  `current_voice_profile`), the jobs table and a small key-value table live in
+  SQLite with transactional writes. The old global `state.json` is migrated
+  once and renamed `state.json.migrated`.
+- **engines/**: pluggable text generators behind one interface. Ids are
+  `ngram` (instant, CPU, trained from the current dataset), `hf:<model>`
+  (local weights, one resident at a time), `openai:<model>` (any
+  OpenAI-compatible server; loopback only unless
+  `ECHOTWIN_ALLOW_REMOTE_ENGINE=1`) and `mock` (tests only). An unavailable
+  engine returns a typed error, never invented text. Engines declare whether
+  they read prompt context; the n-gram engine does not, so the UI offers only
+  `plain` for it.
+- **jobs**: `services.jobs.submit` runs work on a thread pool (heavy work is
+  serialized), persists progress, and marks jobs interrupted by a restart as
+  failed. The same jobs back `/api/v1/jobs` and the UI jobs panel.
+- **UI**: a stage rail (Import, Author, Dataset, Profile, Evaluate, Chat,
+  Voice) derived from Store pointers, one page module per step in
+  `ui/pages`, and one shared timer that refreshes rail and jobs. Pages never
+  block on long work; they submit a job and poll.
 - **Storage**: SQLite metadata + JSONL artifacts under `ECHOTWIN_HOME`.
   Raw content never enters logs; PII redaction is configurable.
+
+`LocalHFEngine` is unit-tested with a fake model loader. It has not been
+verified end to end with real weights on the development machine (no GPU, no
+downloaded models).

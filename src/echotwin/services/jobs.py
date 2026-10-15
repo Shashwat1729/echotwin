@@ -14,6 +14,7 @@ import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from typing import Any
 
 from ..workspace import get_store
 
@@ -43,7 +44,7 @@ class JobContext:
 
 
 def submit(kind: str, fn: Callable[[JobContext], dict | None], *, heavy: bool = False) -> dict:
-    job = {
+    job: dict[str, Any] = {
         "job_id": uuid.uuid4().hex[:12],
         "kind": kind,
         "status": "queued",

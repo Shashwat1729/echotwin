@@ -35,7 +35,7 @@ def get(key: str, default=None):
     return store.kv_get(key, default)
 
 
-def set(key: str, value) -> None:  # noqa: A001 - legacy public name
+def set(key: str, value) -> None:
     store = get_store()
     if key in LEGACY_KEYS:
         store.set_pointer(LEGACY_KEYS[key], None if value is None else str(value))

@@ -110,3 +110,13 @@ def test_settings_rejects_remote_openai_endpoint():
 def test_home_helpers_render():
     assert "et-callout" in home.next_step_html()
     assert list(home.engines_df().columns) == ["Engine", "Available", "Note"]
+
+
+def test_package_version_matches_pyproject():
+    import tomllib
+
+    import echotwin
+
+    root = Path(__file__).resolve().parents[2]
+    declared = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+    assert echotwin.__version__ == declared

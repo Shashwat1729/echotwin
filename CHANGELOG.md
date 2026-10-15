@@ -2,6 +2,41 @@
 
 All notable changes to this project are documented here. Dates are UTC.
 
+## [Unreleased]
+
+### Changed
+
+- Architecture overhaul: CLI, API and UI are thin adapters over a shared
+  `services/` layer; duplicated logic is removed from the adapters.
+- Workspace state moved from a global `state.json` to a transactional SQLite
+  `Store` (pointers, jobs, key-value). Legacy state migrates once.
+- Gradio studio rebuilt as a guided stage rail with one page per step, a shared
+  jobs panel and timer, and typed errors shown as callouts.
+- `/generate` and `echotwin chat` use pluggable engines (`ngram`, `hf:<m>`,
+  `openai:<m>`) and honour chat history; no dataset gives an error, not text.
+- Demo data is a multi-conversation synthetic export so the held-out split is
+  non-empty; the demo now stores its messages so every service works on it.
+- `ngram` and `mock` are no longer evaluation methods; use the `ngram` engine
+  and method `plain` (CLI: `evaluate baseline --ngram --method plain`).
+
+### Added
+
+- Job runner with persisted progress, cancel, and restart cleanup; endpoints
+  `GET /jobs`, `GET /jobs/{id}`, `POST /jobs/{id}/cancel`.
+- Loopback-only guard for OpenAI-compatible endpoints
+  (`ECHOTWIN_ALLOW_REMOTE_ENGINE=1` to override).
+
+### Fixed
+
+- Chat ignored history and rebuilt its index on every message.
+- `/generate` reloaded the model per request.
+- Mojibake in a module docstring.
+
+### Known limits
+
+- `LocalHFEngine` is unit-tested with a fake loader only; not verified end to
+  end with real weights.
+
 ## [0.1.0] - 2026-10-15
 
 First public development release (private repository).

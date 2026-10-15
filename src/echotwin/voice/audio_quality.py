@@ -1,7 +1,7 @@
 """Audio quality analysis (no ML required).
 
 Pure signal checks with documented, configurable thresholds. Automated noise
-estimates are approximate â€” the report says so on every run. Feedback messages
+estimates are approximate: the report says so on every run. Feedback messages
 are actionable and never moralizing: a quiet recording may still be someone's
 natural voice.
 """

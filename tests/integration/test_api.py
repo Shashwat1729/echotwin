@@ -97,7 +97,7 @@ def test_dataset_and_profile_and_generate():
     )
     assert r.status_code == 200
     assert r.json()["generated"]
-    assert r.json()["model_revision"] == "mock-1"
+    assert r.json()["model_revision"].startswith("ngram")
 
 
 def test_voice_plan_route():
@@ -151,3 +151,70 @@ def test_synthesize_without_consent_blocked():
     assert (
         "consent" in (job["error"] or "").lower() or "authorization" in (job["error"] or "").lower()
     )
+
+
+def _prepare_demo_dataset() -> None:
+    from pathlib import Path
+
+    zip_path = Path(__file__).parents[2] / "examples" / "synthetic_multi.zip"
+    files = {"file": ("export.zip", zip_path.read_bytes(), "application/zip")}
+    imp = client.post("/api/v1/imports/upload", files=files).json()
+    client.post(f"/api/v1/imports/{imp['import_id']}/target-author", json={"name_or_id": "Aarav"})
+    assert client.post("/api/v1/dataset/prepare", json={}).status_code == 200
+
+
+def _wait_job(job_id: str) -> dict:
+    import time
+
+    for _ in range(100):
+        job = client.get(f"/api/v1/jobs/{job_id}").json()
+        if job["status"] in {"completed", "failed", "cancelled"}:
+            return job
+        time.sleep(0.1)
+    return job
+
+
+def test_jobs_list_route():
+    r = client.get("/api/v1/jobs")
+    assert r.status_code == 200
+    assert isinstance(r.json()["jobs"], list)
+
+
+def test_cancel_unknown_job_is_404():
+    assert client.post("/api/v1/jobs/nope/cancel").status_code == 404
+    assert client.get("/api/v1/jobs/nope").status_code == 404
+
+
+def test_baseline_evaluation_job_completes():
+    _prepare_demo_dataset()
+    r = client.post("/api/v1/evaluations/baseline", json={"method": "plain", "engine": "ngram"})
+    assert r.status_code == 200, r.text
+    job = _wait_job(r.json()["job_id"])
+    assert job["status"] == "completed", job
+    assert job["result"]["predictions"]
+    assert any(j["job_id"] == job["job_id"] for j in client.get("/api/v1/jobs").json()["jobs"])
+
+
+def test_generate_without_dataset_is_client_error():
+    r = client.post(
+        "/api/v1/generate", json={"context": [{"role": "user", "content": "hi"}], "model": ""}
+    )
+    assert 400 <= r.status_code < 500
+    assert "generated" not in r.json()
+
+
+def test_generate_reuses_engine(monkeypatch):
+    from echotwin.engines import ngram as ngram_mod
+
+    _prepare_demo_dataset()
+    calls = []
+    real = ngram_mod.NGramEngine.for_dataset
+    monkeypatch.setattr(
+        ngram_mod.NGramEngine,
+        "for_dataset",
+        classmethod(lambda cls, ds: calls.append(ds) or real(ds)),
+    )
+    body = {"context": [{"role": "user", "content": "kal milte hain?"}], "model": ""}
+    assert client.post("/api/v1/generate", json=body).status_code == 200
+    assert client.post("/api/v1/generate", json=body).status_code == 200
+    assert len(calls) <= 1

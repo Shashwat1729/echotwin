@@ -43,7 +43,7 @@ class BaseEngine:
         try:
             text = self._generate(messages, cfg)
             return Generation(text, self.name, time.perf_counter() - start)
-        except Exception as exc:  # noqa: BLE001 - engines report, callers decide
+        except Exception as exc:
             return Generation(
                 "", self.name, time.perf_counter() - start, error=str(exc) or type(exc).__name__
             )

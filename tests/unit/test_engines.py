@@ -5,6 +5,7 @@ from __future__ import annotations
 import http.server
 import json
 import threading
+from typing import ClassVar
 
 import pytest
 
@@ -89,9 +90,9 @@ def test_mock_gate():
 
 
 class _Handler(http.server.BaseHTTPRequestHandler):
-    seen: list = []
+    seen: ClassVar[list] = []
 
-    def do_POST(self):  # noqa: N802
+    def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         _Handler.seen.append(body)
         out = json.dumps({"choices": [{"message": {"content": "hi there"}}]}).encode()

@@ -13,7 +13,7 @@ import time
 import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from ..workspace import get_store
 
@@ -27,7 +27,7 @@ _lock = threading.Lock()
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 class JobContext:
@@ -74,7 +74,7 @@ def _run(
             store.job_update(job_id, status="running", started_at=_now())
             try:
                 result = fn(JobContext(job_id, event))
-            except Exception as exc:  # noqa: BLE001 - job failures are data, not crashes
+            except Exception as exc:
                 _finish(job_id, "failed", error=f"{type(exc).__name__}: {exc}"[:_MAX_ERROR])
                 return
             if event.is_set():

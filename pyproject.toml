@@ -101,7 +101,7 @@ ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 # Typer/FastAPI declare CLI/API schemas via defaults in signatures by design.
-"src/echotwin/cli.py" = ["B008"]
+"src/echotwin/cli/*.py" = ["B008"]
 "src/echotwin/api/*.py" = ["B008"]
 
 [tool.coverage.run]

@@ -1,74 +1,28 @@
 """Local SQLite-backed state: artifacts, consents, imports, runs.
 
-SQLite via stdlib only. Raw message content is never written here â€” only
-metadata, pseudonymous ids and paths, so the database itself is low-sensitivity
-(though it still lives under the user's private ECHOTWIN_HOME).
+Thin functional API over the workspace store (``echotwin.workspace``). Raw message
+content is never written here - only metadata, pseudonymous ids and paths, so the
+database itself is low-sensitivity (though it still lives under the user's private
+ECHOTWIN_HOME).
 """
 
 from __future__ import annotations
 
 import json
-import sqlite3
 import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
 from ..exceptions import ArtifactNotFoundError
-from ..settings import get_settings
-
-_SCHEMA = """
-CREATE TABLE IF NOT EXISTS artifacts (
-    artifact_id TEXT PRIMARY KEY,
-    kind TEXT NOT NULL,
-    path TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    metadata_json TEXT DEFAULT '{}'
-);
-CREATE TABLE IF NOT EXISTS consents (
-    consent_id TEXT PRIMARY KEY,
-    scope TEXT NOT NULL,
-    granted INTEGER NOT NULL,
-    granted_at TEXT,
-    details_json TEXT DEFAULT '{}'
-);
-CREATE TABLE IF NOT EXISTS imports (
-    import_id TEXT PRIMARY KEY,
-    source_path TEXT,
-    conversation_id TEXT,
-    created_at TEXT NOT NULL,
-    parsed INTEGER,
-    target_sender_id TEXT,
-    stats_json TEXT DEFAULT '{}'
-);
-CREATE TABLE IF NOT EXISTS runs (
-    run_id TEXT PRIMARY KEY,
-    kind TEXT NOT NULL,
-    status TEXT,
-    created_at TEXT NOT NULL,
-    manifest_path TEXT,
-    metadata_json TEXT DEFAULT '{}'
-);
-"""
-
-
-def _connect() -> sqlite3.Connection:
-    settings = get_settings()
-    settings.ensure_dirs()
-    conn = sqlite3.connect(settings.db_path)
-    conn.row_factory = sqlite3.Row
-    conn.executescript(_SCHEMA)
-    return conn
+from ..workspace import get_store
 
 
 @contextmanager
 def get_connection():
-    conn = _connect()
-    try:
+    """Yield the thread's connection inside a write transaction (commit on exit)."""
+    with get_store().write() as conn:
         yield conn
-        conn.commit()
-    finally:
-        conn.close()
 
 
 def _now() -> str:
@@ -109,7 +63,7 @@ def delete_artifact(artifact_id: str, *, delete_files: bool = True) -> dict:
     """Permanently delete an artifact record and (optionally) its file.
 
     Deleting files does NOT guarantee information removal from trained model
-    weights â€” retraining from sanitized data may be required (documented).
+    weights - retraining from sanitized data may be required (documented).
     """
     with get_connection() as conn:
         row = conn.execute("SELECT * FROM artifacts WHERE artifact_id=?", (artifact_id,)).fetchone()

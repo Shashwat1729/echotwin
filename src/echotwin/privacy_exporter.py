@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .settings import get_settings
 from .storage import db
+from .workspace import get_store, reset_store
 
 
 def export_all(out_dir: Path, console) -> None:
@@ -69,11 +70,16 @@ def delete_scope(scope: str, console) -> None:
         if ds_dir.exists():
             shutil.rmtree(ds_dir, ignore_errors=True)
         (settings.home / "state.json").unlink(missing_ok=True)
-        console.print("deleted datasets and CLI state")
+        store = get_store()
+        for pointer in ("current_dataset", "current_profile"):
+            store.set_pointer(pointer, None)
+        console.print("deleted datasets and workspace pointers")
         return
     if scope == "all-state":
         shutil.rmtree(settings.artifacts_dir, ignore_errors=True)
-        (settings.home / "echotwin.sqlite3").unlink(missing_ok=True)
+        reset_store()  # close connections so the WAL files can be removed
+        for suffix in ("", "-wal", "-shm"):
+            (settings.home / f"echotwin.sqlite3{suffix}").unlink(missing_ok=True)
         (settings.home / "state.json").unlink(missing_ok=True)
         console.print(
             "deleted artifacts, database and CLI state. Recordings under "

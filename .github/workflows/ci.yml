@@ -1,0 +1,28 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install (core + dev only; no GPU, no model downloads)
+        run: uv pip install --system -e ".[dev]"
+      - name: Synthetic demo data
+        run: python scripts/generate_demo_data.py
+      - name: Tests
+        run: python -m pytest -q
+      - name: Typecheck
+        run: python -m mypy src/echotwin

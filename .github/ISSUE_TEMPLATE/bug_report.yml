@@ -1,0 +1,22 @@
+---
+name: Bug report
+description: Something real is broken (include repro, not private data)
+labels: [bug]
+body:
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps (synthetic data only)
+      description: Commands run, starting from `echotwin demo` or the synthetic export. Never paste real private chats or recordings.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual behavior
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment (`echotwin doctor` summary, OS, Python)

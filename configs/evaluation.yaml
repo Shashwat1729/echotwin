@@ -1,0 +1,22 @@
+# EchoTwin evaluation defaults.
+# Every run uses the SAME held-out prompts for fair comparison and always
+# reports style metrics + contamination (memorization) together.
+
+baseline:
+  method: style_rag # zero_shot | style_profile | few_shot | style_fewshot | style_rag | sft | lora | style_rag_ft | dpo | mock
+  max_prompts: 50
+  few_shot: 5
+  rag_k: 3
+  model: "" # empty = deterministic mock; or a registry name / org/model id
+
+generation:
+  max_new_tokens: 128
+  temperature: 0.7
+  top_p: 0.8
+  top_k: 20
+  min_p: 0.0
+  seed: null
+
+pairwise:
+  limit: 20
+  judge: false # model-as-judge is labeled model-based, never human gold

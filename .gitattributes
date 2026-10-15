@@ -1,0 +1,14 @@
+*.py text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+*.jsonl text eol=lf
+*.txt text eol=lf
+*.wav binary
+*.mp3 binary
+*.flac binary
+*.ogg binary
+*.safetensors binary
+*.bin binary
+*.pt binary

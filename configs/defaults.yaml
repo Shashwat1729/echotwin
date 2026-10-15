@@ -1,0 +1,27 @@
+# EchoTwin dataset + pipeline defaults.
+# These mirror DatasetConfig / SplitConfig field names.
+
+dataset:
+  context_messages: 4
+  max_context_chars: 1200
+  min_target_chars: 2
+  max_target_chars: 800
+  include_self_continuations: true
+  drop_low_information: true
+  segment_gap_minutes: 180
+  exact_dedup: true
+  near_dedup_threshold: 1.0 # 1.0 disables near-dup (stdlib difflib, O(n^2))
+  drop_duplicate_messages: true
+  keep_edited: true
+
+split:
+  mode: conversation # conversation | chronological
+  test_fraction: 0.1
+  val_fraction: 0.1
+  seed: 20250917
+
+retrieval:
+  k: 3
+  min_score: 0.0
+  exclude_current_conversation: true
+  max_context_chars: 240

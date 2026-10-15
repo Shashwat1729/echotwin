@@ -1,0 +1,26 @@
+# EchoTwin voice defaults.
+# No recording, upload, or synthesis happens without explicit user action,
+# and synthesis additionally requires the voice_cloning consent record.
+
+backend: voxcpm # voxcpm | chatterbox-multilingual
+model_id: openbmb/VoxCPM2
+device: auto # auto | cpu | mps | cuda | cuda:N
+
+reference:
+  min_seconds: 3.0
+  recommended_seconds: 8.0
+  transcript_optional: true # required only for "ultimate" (continuation) mode
+
+synthesis:
+  use_transcript: false
+  cfg_value: null # backend default when null
+  inference_timesteps: null
+  seed: null
+
+quality_thresholds:
+  min_seconds: 1.0
+  warn_min_seconds: 2.0
+  peak_too_quiet: 0.02
+  clip_fraction_warn: 0.001
+  silence_fraction_warn: 0.6
+  snr_warn_db: 15.0

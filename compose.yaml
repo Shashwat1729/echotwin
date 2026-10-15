@@ -1,0 +1,19 @@
+services:
+  echotwin:
+    build: .
+    image: echotwin:0.1.0
+    ports:
+      - "8765:8765" # API
+      - "7860:7860" # Gradio studio
+    volumes:
+      - echotwin-home:/home/echotwin/.echotwin
+      - ./exports:/app/exports:ro
+    environment:
+      ECHOTWIN_API_HOST: 0.0.0.0
+      ECHOTWIN_UI_HOST: 0.0.0.0
+    command: ["python", "-m", "echotwin.cli", "serve", "--host", "0.0.0.0"]
+    # NOTE: binding 0.0.0.0 inside compose is intentional (container network);
+    # do not publish these ports on untrusted networks without authentication.
+
+volumes:
+  echotwin-home:

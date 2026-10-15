@@ -147,16 +147,130 @@ def write_jsonl(path: Path, rows: list[dict]) -> None:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+# One entry per contact: (speaker, text). Aarav is the author the demo clones.
+# Mixed Hindi (Devanagari), English and Hinglish; fictional throughout.
+MULTI_CHATS: dict[str, list[tuple[str, str]]] = {
+    "Priya": [
+        ("Priya", "kal ka assignment submit kar diya kya?"),
+        ("Aarav", "haan bhai kal raat hi kar diya, bas formatting bachi thi"),
+        ("Priya", "mujhe bhi bhej do na, reference ke liye"),
+        ("Aarav", "ruk, abhi bhejta hoon. pehle ek baar check kar leta hoon"),
+        ("Priya", "thanks!! tum best ho"),
+        ("Aarav", "arey koi baat nahi yaar, kal library me milte hain 6 bje"),
+        ("Priya", "6 bje thoda late nahi hai? library 7 tak hi khuli rehti hai"),
+        ("Aarav", "haan sahi bola, phir 5 bje theek hai"),
+        ("Priya", "done. chai bhi peete hain wahan se pehle"),
+        ("Aarav", "chai ke bina toh din shuru hi nahi hota yaar"),
+        ("Priya", "sach me 😂 kal milte hain phir"),
+        ("Aarav", "pakka, kal baat karte hain. good night!"),
+    ],
+    "Rohit": [
+        ("Rohit", "bhai match dekha kal?"),
+        ("Aarav", "haan dekha, last over me toh dil hi ruk gaya tha"),
+        ("Rohit", "kya finish tha yaar 🔥"),
+        ("Aarav", "sach me, kabhi socha nahi tha ki yeh jeet jayenge"),
+        ("Rohit", "sunday ko final hai, mere room pe dekhte hain?"),
+        ("Aarav", "done, main snacks leke aata hoon"),
+        ("Rohit", "samosa mat bhulna"),
+        ("Aarav", "samosa bhi aur jalebi bhi, tension mat le"),
+        ("Rohit", "tu legend hai bhai"),
+        ("Aarav", "chal ab sone de, kal subah class hai"),
+        ("Rohit", "ok bye, gn"),
+        ("Aarav", "gn! sunday ko milte hain"),
+    ],
+    "Maa": [
+        ("Maa", "beta khana kha liya?"),
+        ("Aarav", "haan maa, mess me kha liya. aap logo ne khaya?"),
+        ("Maa", "haan hum ne bhi kha liya. padhai kaisi chal rahi hai?"),
+        ("Aarav", "badhiya chal rahi hai maa, project bhi almost ho gaya hai"),
+        ("Maa", "bahut achha. apna dhyan rakhna, thand badh gayi hai"),
+        ("Aarav", "haan maa, jacket pehen ke hi jata hoon"),
+        ("Maa", "Diwali pe ghar aa rahe ho na?"),
+        ("Aarav", "haan pakka aa raha hoon, ticket bhi book kar li hai"),
+        ("Maa", "bahut khushi hui sunke ❤️"),
+        ("Aarav", "mujhe bhi maa, ghar ka khana bahut miss kar raha hoon"),
+        ("Maa", "tere liye gajar ka halwa banaungi"),
+        ("Aarav", "wah! ab toh intezaar nahi ho raha 😋"),
+    ],
+    "Sana": [
+        ("Sana", "Hey, did you finish the UI mockups?"),
+        ("Aarav", "almost done, just fixing the navbar spacing"),
+        ("Sana", "Great. Can you share the Figma link when you are done?"),
+        ("Aarav", "sure, will send it tonight"),
+        ("Sana", "Also the client wants a dark mode option"),
+        ("Aarav", "that is easy, I will add it tomorrow morning"),
+        ("Sana", "Perfect. You are a lifesaver"),
+        ("Aarav", "no worries, we will make it look good"),
+        ("Sana", "Meeting at 4 pm, do not forget"),
+        ("Aarav", "got it, I will be there on time"),
+        ("Sana", "thanks!"),
+        ("Aarav", "anytime. talk to you soon"),
+    ],
+    "Dev": [
+        ("Dev", "यार आज क्लास में क्या पढ़ाया?"),
+        ("Aarav", "आज डेटाबेस का चैप्टर था, काफी आसान था"),
+        ("Dev", "नोट्स भेज दो ना प्लीज़"),
+        ("Aarav", "ठीक है, शाम को भेज दूँगा"),
+        ("Dev", "बहुत बहुत धन्यवाद भाई"),
+        ("Aarav", "कोई बात नहीं, कल कैंटीन में मिलते हैं"),
+        ("Dev", "ठीक है, कितने बजे?"),
+        ("Aarav", "ग्यारह बजे के आसपास, क्लास के बाद"),
+        ("Dev", "पक्का, चाय मेरी तरफ से"),
+        ("Aarav", "वाह, फिर तो आना ही पड़ेगा 😄"),
+        ("Dev", "ठीक है, कल मिलते हैं"),
+        ("Aarav", "हाँ, कल बात करते हैं"),
+    ],
+    "Hostel Crew": [
+        ("Rohit", "guys wifi phir se down hai"),
+        ("Aarav", "kal bhi down tha, warden ko bolna padega"),
+        ("Priya", "main complaint likh deti hoon"),
+        ("Aarav", "haan likh de, main sign kar dunga"),
+        ("Rohit", "mess ka menu bhi badlo bolna"),
+        ("Aarav", "woh alag complaint hai bhai, ek ek karke"),
+        ("Priya", "theek hai, aaj shaam tak bhej dungi"),
+        ("Aarav", "badhiya. aur sunday ko movie night pakki?"),
+        ("Rohit", "pakki! popcorn mera"),
+        ("Aarav", "mai cold drink le aata hoon"),
+        ("Priya", "done deal 🎬"),
+        ("Aarav", "chalo phir, sunday ko milte hain sab"),
+    ],
+}
+
+
+def build_multi_chat_text(speaker_lines: list[tuple[str, str]], day: int) -> str:
+    """Render (speaker, text) pairs as an Android-style export, two minutes apart."""
+    out: list[str] = []
+    minutes = 9 * 60 + 5
+    for speaker, text in speaker_lines:
+        h, m = divmod(minutes, 60)
+        out.append(f"[{day:02d}/03/2025, {h:02d}:{m:02d}:10] {speaker}: {text}")
+        minutes += 2
+    return "\n".join(out) + "\n"
+
+
+def build_multi_zip(path: Path) -> None:
+    """Write the multi-conversation export. Fixed timestamps keep the zip reproducible."""
+    import zipfile
+
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for i, (contact, lines) in enumerate(MULTI_CHATS.items()):
+            info = zipfile.ZipInfo(f"WhatsApp Chat with {contact}_chat.txt", (2025, 3, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            zf.writestr(info, build_multi_chat_text(lines, day=i + 1).encode("utf-8"))
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     examples = repo_root / "examples"
     examples.mkdir(exist_ok=True)
 
     (examples / "synthetic_whatsapp.txt").write_text(build_chat_text(), encoding="utf-8", newline="\n")
+    build_multi_zip(examples / "synthetic_multi.zip")
     write_jsonl(examples / "tiny_training_dataset.jsonl", build_training_examples())
     write_jsonl(examples / "synthetic_preference_pairs.jsonl", build_preference_pairs())
 
     print("Wrote examples/synthetic_whatsapp.txt")
+    print("Wrote examples/synthetic_multi.zip")
     print("Wrote examples/tiny_training_dataset.jsonl")
     print("Wrote examples/synthetic_preference_pairs.jsonl")
 

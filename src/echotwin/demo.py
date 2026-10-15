@@ -1,7 +1,7 @@
 """Deterministic synthetic demo: end-to-end offline pipeline run.
 
-Uses the checked-in synthetic export; no private data, no model downloads
-(mock generator), no network.
+Uses the checked-in multi-conversation synthetic export; no private data, no model
+downloads (n-gram engine), no network.
 """
 
 from __future__ import annotations
@@ -9,43 +9,46 @@ from __future__ import annotations
 from pathlib import Path
 
 from .dataset.builder import DatasetConfig, build_examples, load_jsonl, save_jsonl
-from .dataset.retrieval import RetrievalConfig, build_index_from_examples
 from .dataset.splits import SplitConfig, split_dataset
+from .engines import NGramEngine
 from .evaluation.baseline import heldout_prompts, run_baseline
 from .ingestion import WhatsAppParser, load_export, participant_stats, pick_participant
-from .models.generation import MockGenerator
+from .ingestion.export_loader import conversation_id_from_name
 from .profiling.style_profile import build_style_profile, profile_prompt_fragment, save_profile
 from .settings import get_settings
-from .storage import db, state
+from .storage import db
+from .workspace import get_store
+
+DEMO_AUTHOR = "Aarav"
 
 
 def run_demo(console) -> None:
     settings = get_settings()
     settings.ensure_dirs()
+    store = get_store()
     repo_root = Path(__file__).resolve().parents[2]
-    export = repo_root / "examples" / "synthetic_whatsapp.txt"
+    export = repo_root / "examples" / "synthetic_multi.zip"
 
     console.print("[bold]== EchoTwin synthetic demo ==[/bold]")
     bundle = load_export(export)
     parser = WhatsAppParser()
-    result = parser.parse_text(bundle.chats[0].chat_text, "demo")
-    console.print(
-        f"1) parsed {len(result.messages)} messages (formats: {result.report.detected_formats})"
-    )
+    messages = []
+    for i, chat in enumerate(bundle.chats):
+        convo_id = conversation_id_from_name(chat.inner_name, f"demo-{i}")
+        messages.extend(parser.parse_text(chat.chat_text, convo_id).messages)
+    console.print(f"1) parsed {len(messages)} messages from {len(bundle.chats)} conversations")
 
-    stats = participant_stats(result.messages)
+    stats = participant_stats(messages)
     console.print(f"2) participants: {', '.join(s.sender_name for s in stats)}")
-    target_id = pick_participant(result.messages, "Aarav")
+    target_id = pick_participant(messages, DEMO_AUTHOR)
     if target_id is None:
-        raise RuntimeError("Synthetic demo is broken: participant 'Aarav' not found.")
-    import_id = db.record_import(
-        str(export), "demo", len(result.messages), target_id, result.report.model_dump()
-    )
-    state.set("last_import_id", import_id)
-    state.set("target_sender_id", target_id)
-    console.print(f"3) target author: Aarav ({target_id})")
+        raise RuntimeError(f"Synthetic demo is broken: participant {DEMO_AUTHOR!r} not found.")
+    import_id = db.record_import(str(export), "demo", len(messages), target_id, {})
+    store.set_pointer("current_import", import_id)
+    store.set_pointer("current_author", target_id)
+    console.print(f"3) target author: {DEMO_AUTHOR} ({target_id})")
 
-    built = build_examples(result.messages, target_id, DatasetConfig())
+    built = build_examples(messages, target_id, DatasetConfig())
     split = split_dataset(built, SplitConfig())
     console.print(
         f"4) dataset: {len(built.examples)} examples; splits "
@@ -59,33 +62,33 @@ def run_demo(console) -> None:
     save_jsonl(split.train, ds_dir / "train.jsonl")
     save_jsonl(split.val, ds_dir / "val.jsonl")
     save_jsonl(split.test, ds_dir / "test.jsonl")
-    state.set("last_dataset_id", "demo")
+    store.set_pointer("current_dataset", "demo")
 
-    profile = build_style_profile(result.messages, target_id)
+    profile = build_style_profile(messages, target_id)
     prof_path = settings.artifacts_dir / "profiles" / "demo-profile.json"
     save_profile(profile, prof_path)
-    state.set("last_profile_id", str(prof_path))
+    store.set_pointer("current_profile", str(prof_path))
     console.print(
         f"5) style profile: {profile.n_messages} messages, "
         f"langs={profile.language_use.get('distributions')}"
     )
 
     prompts = heldout_prompts(load_jsonl(ds_dir / "test.jsonl"))
-    gen = MockGenerator(exemplar_texts=[ex.messages[-1].content for ex in split.train[:5]], seed=7)
-    index = build_index_from_examples(built.examples)
-    if prompts:
+    if not prompts:
+        console.print("6) baseline skipped: the held-out split is empty.")
+    else:
+        # "plain": the n-gram engine ignores system text and exemplars, so a
+        # retrieval method would be mislabelled here.
         records, path, report = run_baseline(
-            method="style_rag",
-            generator=gen,
+            method="plain",
+            generator=NGramEngine.for_dataset("demo"),
             prompts=prompts,
             profile_fragment=profile_prompt_fragment(profile),
             output_dir=settings.artifacts_dir / "evaluations" / "demo",
-            model_revision="mock-1",
-            retrieval_index=index,
-            retrieval_cfg=RetrievalConfig(k=3),
+            model_revision="ngram-demo",
             train_texts=[ex.messages[-1].content for ex in split.train],
         )
-        console.print(f"6) style_rag baseline (mock): {len(records)} predictions -> {path}")
+        console.print(f"6) plain baseline (n-gram): {len(records)} predictions -> {path}")
         if report.style:
             console.print(
                 f"   style char3cos={report.style.char_ngram_cosine_3}, "
@@ -97,11 +100,6 @@ def run_demo(console) -> None:
                 f"near={report.contamination['near_match_rate']} "
                 f"verdict={report.contamination['verdict']}"
             )
-    else:
-        console.print(
-            "6) baseline skipped: the synthetic export is a single conversation, so the "
-            "held-out split is empty (import multiple chats for a real held-out set)."
-        )
     console.print(
         "[green]Demo complete.[/green] Next: 'echotwin voice backends' and 'echotwin doctor'."
     )

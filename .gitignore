@@ -81,3 +81,5 @@ coverage.xml
 htmlcov/
 
 .superpowers/
+
+!examples/synthetic_multi.zip

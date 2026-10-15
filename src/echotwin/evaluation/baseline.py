@@ -39,6 +39,7 @@ SYSTEM_BASE = (
 )
 
 METHODS = [
+    "plain",
     "zero_shot",
     "style_profile",
     "few_shot",
@@ -81,6 +82,9 @@ def build_messages(
     few_shot: list[dict],
     retrieval_exemplars: list[dict] | None = None,
 ) -> list[dict]:
+    if method == "plain":
+        # Prompt only: for engines that apply their own persona (n-gram, remote APIs).
+        return list(prompt["messages"])
     system = SYSTEM_BASE
     if (
         method in {"style_profile", "style_fewshot", "style_rag", "style_rag_ft"}

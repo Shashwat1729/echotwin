@@ -508,6 +508,95 @@ _HINGLISH_SCRIPTS: list[ScriptEntry] = [
         "Mujhe exact time bata dena, so that I can plan everything properly.",
         "Tell me the exact time so I can plan everything properly.",
     ),
+    _he(
+        "he-numbers",
+        "Ek, do, teen, chaar, paanch, chhah, saat, aath, nau, das.",
+        "One, two, three, four, five, six, seven, eight, nine, ten.",
+        ScriptCategory.NUMBERS,
+    ),
+    _he(
+        "he-question-plan",
+        "Kal ka kya scene hai? Tum free ho ya kuch kaam hai?",
+        "What's the scene tomorrow? Are you free or do you have work?",
+        ScriptCategory.QUESTION,
+    ),
+    _he(
+        "he-question-msg",
+        "Tumne woh message padha? Mujhe uska jawab dena hai urgently.",
+        "Did you read that message? I need to reply to it urgently.",
+        ScriptCategory.QUESTION,
+    ),
+    _he(
+        "he-aspirate",
+        "Khana kha liya? Ghar pe sab theek hai, chhota bhai just bahar gaya hai.",
+        "Had food? All good at home, little brother has just gone out.",
+        ScriptCategory.PHONETIC_HI_ASPIRATION,
+        7.0,
+    ),
+    _he(
+        "he-nasal",
+        "Chandni raat mein long drive ka apna hi maza hai. Kaam kal karenge, that is a promise.",
+        "A long drive on a moonlit night has its own charm. We'll work tomorrow, that is a promise.",
+        ScriptCategory.PHONETIC_HI_NASALS_VOWELS,
+        7.0,
+    ),
+    _he(
+        "he-ack",
+        "Haan haan, samajh gaya. Done, kal subah bhej dunga pakka.",
+        "Yes yes, understood. Done, I'll definitely send it tomorrow morning.",
+        ScriptCategory.ACKNOWLEDGEMENT,
+    ),
+    _he(
+        "he-short-vm",
+        "Haan, pahunch gaya. paanch minute mein aata hoon.",
+        "Yes, got it. Coming in five minutes.",
+        ScriptCategory.SHORT_VOICE_NOTE,
+        5.0,
+    ),
+    _he(
+        "he-reassure",
+        "Tension mat lo yaar, sab sort ho jayega. Main hoon na tumhare saath, I promise.",
+        "Don't stress buddy, everything will get sorted. I'm with you, I promise.",
+        ScriptCategory.EMOTION_REASSURANCE,
+        7.0,
+    ),
+    _he(
+        "he-explain",
+        "Dekho, pehle hum saari details nikaalte hain, phir aaram se decide karte hain.",
+        "Look, first we pull out all the details, then decide calmly.",
+        ScriptCategory.EXPLANATION,
+        7.0,
+    ),
+    _he(
+        "he-contrast",
+        "Idea toh achha hai, but budget thoda zyada lag raha hai mujhe.",
+        "The idea is good, but the budget feels a bit high to me.",
+        ScriptCategory.EMPHASIS_CONTRAST,
+        7.0,
+    ),
+    _he(
+        "he-datetime",
+        "Meeting kal dopahar teen baje hai, aur Friday ko chhutti hai.",
+        "The meeting is tomorrow at 3pm, and Friday is a holiday.",
+        ScriptCategory.DATES_TIMES,
+    ),
+    _he(
+        "he-long-para",
+        "Aaj subah main jaldi utha, chai banayi, aur balcony mein baithkar Mausam "
+        "enjoy kiya. Dopahar mein doston se mila, shaam ko thoda walk kiya, aur "
+        "raat mein ghar ka khana khaya. Din kaafi achha tha overall.",
+        "This morning I woke early, made tea, and enjoyed the weather on the "
+        "balcony. Met friends in the afternoon, walked in the evening, and ate "
+        "home food at night. Overall a pretty good day.",
+        ScriptCategory.LONG_PARAGRAPH,
+        18.0,
+    ),
+    _he(
+        "he-thanks",
+        "Thank you yaar, tumne meri bahut help ki. Kal milte hain!",
+        "Thank you buddy, you helped me a lot. See you tomorrow!",
+        ScriptCategory.ACKNOWLEDGEMENT,
+    ),
 ]
 
 SCRIPT_LIBRARY: list[ScriptEntry] = [

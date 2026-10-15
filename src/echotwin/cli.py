@@ -397,7 +397,8 @@ def profile_build() -> None:
 @evaluate_app.command("baseline")
 def evaluate_baseline(
     method: str = typer.Option(
-        "style_rag", help="zero_shot | style_profile | few_shot | style_fewshot | style_rag | mock"
+        "style_rag",
+        help="zero_shot | style_profile | few_shot | style_fewshot | style_rag | ngram | mock",
     ),
     model: str = typer.Option(
         "", help="registry name or org/model id (empty = deterministic mock)"
@@ -433,6 +434,14 @@ def evaluate_baseline(
 
         generator: TextGenerator = TransformersGenerator.from_spec(model)
         revision = get_model_spec(model).hf_model_id
+    elif method == "ngram":
+        from .models.ngram import NGramGenerator, NGramModel
+
+        if not train:
+            _fail("Train split is empty; import multiple chats first.")
+        ngram_model = NGramModel(order=3).train_texts([ex.messages[-1].content for ex in train])
+        generator = NGramGenerator(ngram_model, seed=7)
+        revision = "ngram-o3"
     else:
         exemplars = [
             {
@@ -554,6 +563,35 @@ def evaluate_compare() -> None:
             },
             indent=2,
         )[:4000]
+    )
+
+
+@train_app.command("ngram")
+def train_ngram(
+    order: int = typer.Option(3, help="n-gram order (1-5)"),
+    smoothing: float = typer.Option(0.1, help="add-k smoothing"),
+) -> None:
+    """Train a CPU-only word n-gram style model on the current train split."""
+    from .dataset.builder import load_jsonl
+    from .models.ngram import NGramModel
+    from .settings import get_settings
+
+    ds_id = state.get("last_dataset_id")
+    if not ds_id:
+        _fail("No dataset prepared yet.")
+    ds_dir = get_settings().artifacts_dir / "datasets" / ds_id
+    train_ex = load_jsonl(ds_dir / "train.jsonl")
+    if not train_ex:
+        _fail("Train split is empty; import multiple chats first.")
+    model = NGramModel(order=order, smoothing_k=smoothing).train_texts(
+        [ex.messages[-1].content for ex in train_ex]
+    )
+    out = get_settings().artifacts_dir / "models" / f"ngram-{ds_id}-o{order}.json"
+    model.save(out)
+    db.record_artifact("ngram_model", out, {"dataset": ds_id, "order": order, "targets": model.n_targets})
+    console.print(
+        f"[green]n-gram trained[/green]: order={order} targets={model.n_targets} "
+        f"vocab={len(model.vocab)} -> {out}"
     )
 
 

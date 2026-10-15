@@ -7,6 +7,17 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from ..language import Language
+
+__all__ = [
+    "AttachmentInfo",
+    "Language",
+    "Message",
+    "MessageType",
+    "ParticipantStats",
+    "QualityFlag",
+]
+
 
 class QualityFlag(StrEnum):
     """Non-fatal issues found while parsing a message."""
@@ -29,14 +40,6 @@ class MessageType(StrEnum):
     SYSTEM = "system"
     DELETED = "deleted"
     CALL = "call"
-
-
-class Language(StrEnum):
-    HI_DEVANAGARI = "hi"
-    EN = "en"
-    HI_EN = "hi-en"
-    HI_LATN = "hi-Latn"
-    UNKNOWN = "unknown"
 
 
 class AttachmentInfo(BaseModel):

@@ -20,6 +20,7 @@ from collections import Counter
 
 from pydantic import BaseModel, Field
 
+from ..language import _ROMANIZED_HI_MARKERS
 from ..voice.script_library import ScriptCategory, ScriptEntry
 
 # --- Devanagari grapheme classes (Unicode block, documented mapping) ---------
@@ -143,6 +144,177 @@ def _analyze_english(text: str, acc: Counter) -> None:
                 run = 0
 
 
+# --- Romanized Hindi (Hinglish in Latin script): approximate by design ------
+# Dental vs retroflex is NOT distinguishable in Latin script, so those two
+# categories are deliberately never touched here (stay unknown unless
+# Devanagari evidence exists). Everything below is confidence
+# "approximate_romanized": useful for planning, never phoneme-grade.
+_ROM_ASPIRATED_DIGRAPHS = ("kh", "gh", "chh", "jh", "th", "dh", "ph", "bh")
+_ROM_LONG_VOWELS = ("aa", "ee", "oo", "ai", "au", "ou")
+_ROM_VOICED_STOPS = ("g", "j", "d", "b")
+_ROM_VOICELESS_STOPS = ("k", "c", "t", "p")
+_ROM_MARKER_FRACTION = 0.12
+
+# English function words excluded from romanized analysis: in Hinglish text
+# the content words carry the Hindi phonetics, the function words don't.
+_ROM_EN_STOPWORDS = frozenset(
+    [
+        "a",
+        "an",
+        "the",
+        "and",
+        "or",
+        "but",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "to",
+        "of",
+        "in",
+        "on",
+        "for",
+        "with",
+        "that",
+        "this",
+        "it",
+        "its",
+        "as",
+        "at",
+        "by",
+        "from",
+        "you",
+        "we",
+        "they",
+        "he",
+        "she",
+        "him",
+        "her",
+        "them",
+        "will",
+        "would",
+        "can",
+        "could",
+        "let",
+        "need",
+        "want",
+        "time",
+        "plan",
+        "step",
+        "next",
+        "first",
+        "option",
+        "options",
+        "message",
+        "call",
+        "wait",
+        "sense",
+        "makes",
+        "compare",
+        "rush",
+        "check",
+        "minute",
+        "reply",
+        "meeting",
+        "meet",
+        "today",
+        "now",
+        "hello",
+        "hi",
+        "no",
+        "not",
+        "so",
+        "that",
+        "there",
+        "here",
+        "what",
+        "when",
+        "where",
+        "why",
+        "how",
+        "my",
+        "your",
+        "our",
+        "their",
+        "do",
+        "does",
+        "did",
+        "done",
+        "have",
+        "has",
+        "had",
+        "get",
+        "got",
+        "make",
+        "made",
+        "take",
+        "like",
+        "just",
+        "only",
+        "also",
+        "very",
+        "than",
+        "then",
+        "too",
+        "over",
+        "under",
+        "between",
+        "actually",
+        "honestly",
+        "basically",
+    ]
+)
+
+
+def _is_devanagari_word(word: str) -> bool:
+    return any(0x0900 <= ord(c) <= 0x097F for c in word)
+
+
+def _romanized_hindi_words(text: str) -> list[str]:
+    """Latin words likely carrying Hindi phonetics in a Hinglish text."""
+    words = [w.lower() for w in _WORD_RE.findall(text)]
+    words = [w for w in words if w.isalpha() and not _is_devanagari_word(w)]
+    if not words:
+        return []
+    hits = sum(1 for w in words if w in _ROMANIZED_HI_MARKERS)
+    if hits / len(words) < _ROM_MARKER_FRACTION:
+        return []
+    return [w for w in words if w not in _ROM_EN_STOPWORDS]
+
+
+def _analyze_romanized(words: list[str], acc: Counter) -> None:
+    for lowered in words:
+        if any(d in lowered for d in _ROM_ASPIRATED_DIGRAPHS):
+            acc["hi_aspirated"] += 1
+        else:
+            stops = [c for c in lowered if c in "kgjcctdpb"]
+            if stops:
+                acc["hi_unaspirated"] += 1
+        plain = lowered
+        for d in _ROM_ASPIRATED_DIGRAPHS:
+            plain = plain.replace(d, "")
+        if any(c in plain for c in _ROM_VOICED_STOPS):
+            acc["hi_voiced"] += 1
+        if any(c in plain for c in _ROM_VOICELESS_STOPS):
+            acc["hi_voiceless"] += 1
+        if any(c in lowered for c in "nm"):
+            acc["hi_nasals"] += 1
+        if any(v in lowered for v in _ROM_LONG_VOWELS):
+            acc["hi_long_vowels"] += 1
+        if any(c in lowered for c in "aiu"):
+            acc["hi_short_vowels"] += 1
+        run = 0
+        for c in lowered:
+            if c.isalpha() and c not in "aeiouy":
+                run += 1
+                if run >= 2:
+                    acc["hi_clusters"] += 1
+            else:
+                run = 0
+
+
 def analyze_texts(
     texts: list[str],
     *,
@@ -150,6 +322,7 @@ def analyze_texts(
 ) -> CoverageReport:
     """Analyze a list of texts (scripts actually recorded/read)."""
     acc: Counter = Counter()
+    roman: Counter = Counter()
     lang_acc: Counter = Counter()
     script_acc: Counter = Counter()
     for text in texts:
@@ -164,6 +337,8 @@ def analyze_texts(
             lang_acc["latin"] = lang_acc.get("latin", 0) + 1
         _analyze_devanagari(text, acc)
         _analyze_english(text, acc)
+        if not has_deva:
+            _analyze_romanized(_romanized_hindi_words(text), roman)
         if "?" in text:
             acc["prosody_question"] += 1
         if re.search(r"[.!…]\s*$", text.strip()):
@@ -171,13 +346,15 @@ def analyze_texts(
 
     categories: dict[str, CategoryCoverage] = {}
     for key, label in _CATEGORY_LABELS.items():
-        count = acc.get(key, 0)
-        if key.startswith("hi_"):
-            conf = "grapheme_exact_text_only"
-        elif key.startswith("en_"):
-            conf = "approximate_grapheme"
+        count = acc.get(key, 0) + roman.get(key, 0)
+        if acc.get(key, 0) > 0:
+            conf = "grapheme_exact_text_only" if key.startswith("hi_") else "approximate_grapheme"
+        elif roman.get(key, 0) > 0:
+            conf = "approximate_romanized"
         else:
-            conf = "approximate_grapheme"
+            conf = (
+                "approximate_grapheme" if not key.startswith("hi_") else "grapheme_exact_text_only"
+            )
         categories[key] = CategoryCoverage(
             count=count,
             covered=count > 0,
@@ -197,6 +374,11 @@ def analyze_texts(
         method_notes=[
             "Devanagari: exact grapheme classes from Unicode; pronunciation verified only by human/ASR.",
             "English: letter-class approximation; clusters via consonant runs.",
+            "Romanized Hindi (Hinglish in Latin script): approximate classes from "
+            "aspirated digraphs, nasal/long-vowel spelling and consonant runs, "
+            "counted only in marker-rich text minus English function words. "
+            "Dental vs retroflex is NOT distinguishable in Latin script and is "
+            "never claimed from romanized evidence.",
         ],
         limitations=[
             "This is a TEXT-derived coverage estimate, not acoustic phoneme recognition.",
@@ -207,10 +389,13 @@ def analyze_texts(
 
 
 def _category_relevant(key: str, languages: list[str]) -> bool:
+    lowered = [lang.lower() for lang in languages]
     if key.startswith("hi_"):
-        return any(lang.startswith("hi") for lang in languages)
+        return any(lang.startswith("hi") or lang in {"hinglish", "hi-latn"} for lang in lowered)
     if key.startswith("en_"):
-        return any(lang.startswith("en") for lang in languages)
+        return any(
+            lang.startswith("en") or lang in {"hinglish", "hi-latn", "hi-en"} for lang in lowered
+        )
     return True
 
 

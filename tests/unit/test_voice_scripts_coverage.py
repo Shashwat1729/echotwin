@@ -54,40 +54,8 @@ class TestScriptLibrary:
             assert any("\u0900" <= c <= "\u097f" for c in s.text)
 
     def test_hinglish_scripts_are_mixed_latin(self):
-        hi_markers = {
-            "hai",
-            "hain",
-            "kya",
-            "nahi",
-            "main",
-            "mein",
-            "kar",
-            "mujhe",
-            "hum",
-            "yaar",
-            "abhi",
-            "ghar",
-            "ka",
-            "ki",
-            "ke",
-            "ko",
-            "se",
-            "aur",
-            "liya",
-            "bata",
-            "dena",
-            "karunga",
-            "raha",
-            "sochna",
-            "chahiye",
-            "aaram",
-            "baat",
-            "dekh",
-            "hai.",
-            "karke",
-            "batata",
-            "rukna",
-        }
+        from echotwin.language import _ROMANIZED_HI_MARKERS
+
         en_words = {
             "actually",
             "but",
@@ -129,13 +97,47 @@ class TestScriptLibrary:
             "meet",
             "today",
             "now",
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight",
+            "nine",
+            "ten",
+            "free",
+            "urgently",
+            "just",
+            "long",
+            "drive",
+            "promise",
+            "friday",
+            "morning",
+            "evening",
+            "done",
+            "details",
+            "decide",
+            "decided",
+            "balcony",
+            "enjoy",
+            "walk",
+            "overall",
+            "thank",
+            "you",
+            "help",
         }
         for s in all_scripts():
             if s.language is ScriptLanguage.HINGLISH:
                 words = {w.strip(".,?!").lower() for w in s.text.split()}
-                hi = words & hi_markers
+                hi = {w for w in words if w in _ROMANIZED_HI_MARKERS}
                 en = words & en_words
-                assert len(hi) >= 2 and len(en) >= 1, f"{s.id}: hi={hi} en={en}"
+                if s.category.value == "numbers":
+                    # numbers drills are pure by design (phonetic drill, not conversation)
+                    assert len(hi) >= 2, f"{s.id}: hi={hi}"
+                else:
+                    assert len(hi) >= 2 and len(en) >= 1, f"{s.id}: hi={hi} en={en}"
                 assert all(ord(c) < 0x900 for c in s.text), s.id
 
     def test_phonetic_categories_covered(self):
@@ -206,6 +208,25 @@ class TestPhonemeCoverage:
         report = analyze_texts(["Are you coming? Yes I am."], languages=["en"])
         assert report.categories["prosody_question"].covered
         assert report.categories["prosody_statement"].covered
+
+    def test_romanized_hindi_approximate_coverage(self):
+        report = analyze_texts(
+            ["Yaar, mujhe lagta hai ki khana kha liya, ghar pe sab theek hai"],
+            languages=["hinglish"],
+        )
+        cats = report.categories
+        assert cats["hi_aspirated"].covered
+        assert cats["hi_aspirated"].confidence == "approximate_romanized"
+        assert cats["hi_nasals"].covered
+        # dental vs retroflex is never claimed from Latin script
+        assert not cats["hi_dental"].covered
+        assert not cats["hi_retroflex"].covered
+
+    def test_romanized_needs_markers(self):
+        report = analyze_texts(
+            ["Please confirm the meeting schedule for tomorrow"], languages=["hinglish"]
+        )
+        assert not report.categories["hi_aspirated"].covered
 
     def test_roundtrip_model(self):
         report = analyze_texts(["test sentence"], languages=["en"])

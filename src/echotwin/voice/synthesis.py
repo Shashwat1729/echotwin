@@ -59,7 +59,16 @@ def synthesize(
             "This profile has no reference-audio selection yet. Run "
             "'echotwin voice recommend' and select references first."
         )
+    # Bilingual profiles: prefer the reference recorded in the requested
+    # language (Hindi vs English timbre/prosody transfer better that way).
+    # Falls back to the top-ranked clip when unavailable.
     chosen_id = ids[0]
+    lang_key = language.lower().split("-")[0] if language and language != "auto" else ""
+    if lang_key in {"hi", "en"}:
+        per_lang = (profile.reference_selection or {}).get("per_language", {})
+        preferred = per_lang.get(lang_key)
+        if preferred and preferred in ids:
+            chosen_id = preferred
     rec = next((r for r in profile.recordings if r.recording_id == chosen_id), None)
     if rec is None or not Path(rec.path).exists():
         raise BackendNotAvailableError(
@@ -98,7 +107,8 @@ def synthesize(
         "backend": backend_name,
         "backend_version": caps.get("version", ""),
         "profile_id": profile_id,
-        "reference_recording_ids": ids,
+        "reference_recording_ids": [chosen_id, *[i for i in ids if i != chosen_id]],
+        "reference_language_match": chosen_id != ids[0],
         "created_at": datetime.now(UTC).isoformat(),
         "settings": {k: v for k, v in settings.items() if k != "use_transcript"},
         "seed": seed,
@@ -113,7 +123,7 @@ def synthesize(
         backend=backend_name,
         backend_version=str(caps.get("version", "")),
         model_id=str(getattr(backend, "model_id", backend_name)),
-        reference_recording_ids=ids,
+        reference_recording_ids=[chosen_id, *[i for i in ids if i != chosen_id]],
         language=language,
         transcript_mode=transcript_mode,
         settings={k: v for k, v in settings.items() if k != "use_transcript"},

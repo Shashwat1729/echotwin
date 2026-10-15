@@ -50,6 +50,9 @@ exports/
 benchmarks/results.json
 benchmarks/_tmp/
 
+# Fetched open speech samples (reproducible via scripts/fetch_sample_audio.py)
+sample_audio/
+
 # Notebook checkpoints
 .ipynb_checkpoints/
 
@@ -76,3 +79,5 @@ desktop.ini
 .coverage
 coverage.xml
 htmlcov/
+
+.superpowers/

@@ -17,8 +17,18 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from enum import StrEnum
 
-from .ingestion.schema import Language
+
+class Language(StrEnum):
+    """Language labels used across ingestion, dataset, and voice modules."""
+
+    HI_DEVANAGARI = "hi"
+    EN = "en"
+    HI_EN = "hi-en"
+    HI_LATN = "hi-Latn"
+    UNKNOWN = "unknown"
+
 
 _DEVANAGARI_RE = re.compile(r"[\u0900-\u097F]")
 _LATIN_RE = re.compile(r"[A-Za-z]")
@@ -145,8 +155,61 @@ _ROMANIZED_HI_MARKERS = {
     "dena",
     "lena",
     "rehna",
-    " khana",
+    "khana",
     "chal",
+    # Numbers, time, and everyday words: Hinglish chats are full of these,
+    # and they are strong Romanized-Hindi signals (Latin script first).
+    "ek",
+    "do",
+    "teen",
+    "chaar",
+    "paanch",
+    "chhah",
+    "saat",
+    "aath",
+    "nau",
+    "das",
+    "gyaarah",
+    "baarah",
+    "sau",
+    "hazaar",
+    "subah",
+    "dopahar",
+    "shaam",
+    "raat",
+    "din",
+    "kal",
+    "aaj",
+    "waqt",
+    "ghar",
+    "kaam",
+    "chai",
+    "dost",
+    "mausam",
+    "khush",
+    "bada",
+    "chhota",
+    "naya",
+    "purana",
+    "bura",
+    "jaldi",
+    "bahar",
+    "andar",
+    "upar",
+    "neeche",
+    "paas",
+    "dur",
+    "jawab",
+    "sawal",
+    "padha",
+    "tumne",
+    "scene",
+    "baje",
+    "chhutti",
+    "karunga",
+    "karenge",
+    "milte",
+    "rukna",
 }
 
 _ROMANIZED_HI_THRESHOLD = 0.12

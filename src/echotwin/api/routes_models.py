@@ -160,6 +160,16 @@ def evaluations_baseline(payload: dict) -> dict:
             except EchoTwinError as e:
                 raise ValueError(str(e)) from e
             revision = get_model_spec(model_name).hf_model_id
+        elif method == "ngram":
+            from ..models.ngram import NGramGenerator, NGramModel
+
+            if not train:
+                raise ValueError("Train split is empty; import multiple chats first.")
+            ngram_model = NGramModel(order=int(payload.get("ngram_order", 3))).train_texts(
+                [ex.messages[-1].content for ex in train]
+            )
+            generator = NGramGenerator(ngram_model, seed=7)
+            revision = f"ngram-o{ngram_model.order}"
         else:
             exemplars = [
                 {

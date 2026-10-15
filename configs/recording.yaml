@@ -1,0 +1,11 @@
+# EchoTwin recording-plan defaults.
+# The plan never invents backend requirements: only languages the backend
+# lists are planned; Hinglish tasks are always optional with an explicit
+# note that code-switching is not an official backend language.
+
+languages: [hi, en]
+include_hinglish: true
+speaker_profile: bilingual # native_hindi | indian_english | bilingual | natural_hinglish
+script_preference: auto # auto | devanagari | latin
+max_minutes: 20.0
+accent_note: null

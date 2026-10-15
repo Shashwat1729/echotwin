@@ -1,0 +1,10 @@
+# Demo wiring: `echotwin demo` uses the checked-in synthetic export.
+# Nothing here touches private data, the network, or model weights.
+
+export: examples/synthetic_whatsapp.txt
+conversation_id: demo
+target_author_name: Aarav
+dataset_id: demo
+profile_path: null # filled by the demo run under $ECHOTWIN_HOME/artifacts/profiles/
+baseline_method: style_rag
+generator: mock-1

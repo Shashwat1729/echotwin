@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+title: EchoTwin
+message: If you use EchoTwin, please cite it as below.
+type: software
+version: 0.1.0
+date-released: 2026-10-15
+license: Apache-2.0
+repository-code: https://github.com/Shashwat1729/echotwin
+keywords:
+  - personalization
+  - style-imitation
+  - lora
+  - voice-cloning
+  - privacy
+  - local-first
+authors:
+  - name: EchoTwin contributors

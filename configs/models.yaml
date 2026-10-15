@@ -1,0 +1,71 @@
+# EchoTwin model registry reference (mirrors src/echotwin/models/registry.py).
+# Facts verified against Hugging Face model cards on 2026-10-15.
+# Licenses matter: check docs/model-licenses.md before deploying a fine-tune.
+
+default_model: qwen3-4b-it-2507
+
+models:
+  - name: qwen3-4b-it-2507
+    hf_model_id: Qwen/Qwen3-4B-Instruct-2507
+    family: qwen3
+    license: Apache-2.0
+    params_b: 4.0
+    thinking_mode: none # non-thinking only: ideal for chat-style imitation
+    recommended_sampling: { temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0 }
+    notes: DEFAULT choice for Hindi+English personalization.
+
+  - name: qwen3.5-4b
+    hf_model_id: Qwen/Qwen3.5-4B
+    family: qwen3.5
+    license: Apache-2.0
+    params_b: 4.0
+    thinking_mode: always # thinks by default; EchoTwin disables thinking via template kwargs
+    notes: Newest Qwen multimodal line (Feb 2026).
+
+  - name: qwen3-1.7b
+    hf_model_id: Qwen/Qwen3-1.7B
+    family: qwen3
+    license: Apache-2.0
+    params_b: 1.7
+    thinking_mode: switchable
+    notes: CPU-friendly hybrid thinking model.
+
+  - name: qwen3-4b
+    hf_model_id: Qwen/Qwen3-4B
+    family: qwen3
+    license: Apache-2.0
+    params_b: 4.0
+    thinking_mode: switchable
+    notes: Hybrid thinking model, 256K context.
+
+  - name: gemma4-e4b-it
+    hf_model_id: google/gemma-4-E4B-it
+    family: gemma4
+    license: Gemma Terms of Use
+    params_b: 4.0
+    thinking_mode: none
+    notes: Strong multilingual option; requires accepting the Gemma license on HF.
+
+  - name: gemma3n-e4b-it
+    hf_model_id: google/gemma-3n-E4B-it
+    family: gemma3n
+    license: Gemma Terms of Use
+    params_b: 4.0
+    thinking_mode: none
+    notes: Effective-4B running in ~4GB VRAM; good for laptops.
+
+  - name: qwen2.5-3b-it
+    hf_model_id: Qwen/Qwen2.5-3B-Instruct
+    family: qwen
+    license: Qwen License
+    params_b: 3.1
+    thinking_mode: none
+    status: legacy
+
+  - name: llama3.2-3b-it
+    hf_model_id: meta-llama/Llama-3.2-3B-Instruct
+    family: llama
+    license: Llama 3.2 Community License (requires Meta acceptance)
+    params_b: 3.2
+    thinking_mode: none
+    notes: Devanagari weaker than Qwen at this scale.

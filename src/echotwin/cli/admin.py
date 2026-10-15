@@ -97,15 +97,10 @@ def ui(
             "[yellow]Warning: --share exposes your studio (and potentially private "
             "recordings) to the public internet.[/yellow]"
         )
-    from ..ui.app import build_app
+    from ..ui.app import launch
 
     s.ensure_dirs()
-    build_app().launch(
-        server_name=host or s.ui_host,
-        server_port=port or s.ui_port,
-        inbrowser=False,
-        share=share,
-    )
+    launch(host or s.ui_host, port or s.ui_port, share=share)
 
 
 @app.command()

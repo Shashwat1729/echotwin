@@ -30,3 +30,12 @@ def test_run_demo_has_heldout_split_and_predictions():
     assert preds and preds[0].stat().st_size > 0
     ptr = get_store().pointers()
     assert ptr["current_dataset"] == "demo" and ptr["current_import"] and ptr["current_author"]
+
+
+def test_demo_state_is_usable_by_services():
+    from echotwin.services import imports, profiles
+
+    run_demo(Console(quiet=True))
+    messages, _ = imports.load_messages()
+    assert messages
+    assert profiles.build().profile.n_messages > 0

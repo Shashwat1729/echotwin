@@ -10,7 +10,9 @@ from .base import BaseEngine, EngineCapabilities
 
 class NGramEngine(BaseEngine):
     kind = "ngram"
-    capabilities = EngineCapabilities(uses_prompt_context=True, supports_seed=True, needs_network=False)
+    # Only the last user message seeds generation; system text, few-shot pairs and
+    # retrieved exemplars are ignored, so prompt-building methods change nothing.
+    capabilities = EngineCapabilities(uses_prompt_context=False, supports_seed=True, needs_network=False)
 
     def __init__(self, model: NGramModel, name: str | None = None) -> None:
         self.model = model

@@ -70,11 +70,7 @@ def import_export(path: str | Path, conversation_prefix: str = "conversation") -
         raise ExportValidationError("No messages parsed from any chat in the export.")
 
     import_id = db.record_import(str(path), conversation_prefix, len(messages), None, totals)
-    out_dir = get_settings().artifacts_dir / "imports" / import_id
-    out_dir.mkdir(parents=True, exist_ok=True)
-    with (out_dir / "messages.jsonl").open("w", encoding="utf-8", newline="\n") as fh:
-        for m in messages:
-            fh.write(m.model_dump_json() + "\n")
+    save_messages(import_id, messages)
 
     store = get_store()
     with store.write():
@@ -82,6 +78,14 @@ def import_export(path: str | Path, conversation_prefix: str = "conversation") -
         for stale in ("current_author", "current_dataset", "current_profile"):
             store.set_pointer(stale, None)
     return ImportResult(import_id, len(messages), conversations, participants_of(messages))
+
+
+def save_messages(import_id: str, messages: list[Message]) -> None:
+    out_dir = get_settings().artifacts_dir / "imports" / import_id
+    out_dir.mkdir(parents=True, exist_ok=True)
+    with (out_dir / "messages.jsonl").open("w", encoding="utf-8", newline="\n") as fh:
+        for m in messages:
+            fh.write(m.model_dump_json() + "\n")
 
 
 def load_messages(import_id: str | None = None) -> tuple[list[Message], str]:

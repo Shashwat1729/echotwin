@@ -9,14 +9,14 @@ echotwin participants
 echotwin select-author "Name"
 echotwin dataset prepare | validate | stats
 echotwin profile
-echotwin evaluate baseline [--method style_rag] [--model ""] [--rag-k 3]
+echotwin evaluate baseline [--method style_rag] [--model ""] [--ngram] [--rag-k 3]
 echotwin evaluate compare | pairs --a M1 --b M2 [--judge]
 echotwin train lora --config configs/training.yaml
 echotwin train dpo --config C --pairs P.jsonl [--allow-demo]
 echotwin preferences annotate | validate P.jsonl
 echotwin voice backends | plan | scripts | record | import | analyze
 echotwin voice coverage | recommend | test | evaluate | synthesize
-echotwin chat [--model ""] [--style-fewshot]
+echotwin chat [--engine ngram|hf:<m>|openai:<m>] [--method style_fewshot] [--model <m>]
 echotwin serve [--host 127.0.0.1] [--port 8765]
 echotwin ui
 echotwin artifacts list | delete ID
@@ -39,8 +39,9 @@ Base: `http://127.0.0.1:8765/api/v1`. Binds localhost by default.
 | POST `/imports/{id}/target-author` | Select target author |
 | POST `/dataset/prepare`, GET `/dataset/stats` | Build dataset + manifest |
 | GET/POST/PUT `/profile`, `/profile/build` | View, build (job), edit notes |
-| POST `/generate` | Text generation (`method`: direct/few-shot/style_rag; `model`: "" = mock) |
-| POST `/training/jobs`, GET `/jobs/{id}` | Async training |
+| POST `/generate` | Text generation through the engine registry (`engine`: `ngram` default, `hf:<m>`, `openai:<m>`; `method`: one of the chat methods). Needs a prepared dataset; otherwise a 4xx, never placeholder text |
+| POST `/training/jobs` | Async training |
+| GET `/jobs`, GET `/jobs/{id}`, POST `/jobs/{id}/cancel` | Job list, status, cooperative cancel |
 | POST `/evaluations/baseline` | Async baseline (method/model/retrieval/contamination) |
 | GET `/voice/backends`, POST `/voice/plans`, GET `/voice/scripts` | Voice capabilities + plans |
 | GET/POST/DELETE `/voice/profiles...` | Profile CRUD, uploads, transcripts, coverage, references |

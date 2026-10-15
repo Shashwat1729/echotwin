@@ -22,10 +22,11 @@ class LocalHFEngine(BaseEngine):
 
     def _ensure(self) -> TransformersGenerator:
         if self._gen is None:
-            loader = self._loader
-            if loader is None:
-                from ..models.loader import load_model as loader
-            self._gen = TransformersGenerator(loader(self.spec), self.spec)
+            if self._loader is None:
+                from ..models.loader import load_model
+
+                self._loader = load_model
+            self._gen = TransformersGenerator(self._loader(self.spec), self.spec)
         return self._gen
 
     def _generate(self, messages: list[dict], cfg: GeneratorConfig) -> str:

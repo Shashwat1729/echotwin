@@ -9,7 +9,12 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass, field
 
-from ..dataset.retrieval import RetrievalConfig, build_index_from_examples, retrieve_exemplars
+from ..dataset.retrieval import (
+    BM25Index,
+    RetrievalConfig,
+    build_index_from_examples,
+    retrieve_exemplars,
+)
 from ..engines import registry
 from ..evaluation.baseline import RETRIEVAL_METHODS, build_messages
 from ..exceptions import ConfigurationError, DatasetError, ModelNotAvailableError
@@ -41,7 +46,7 @@ class ChatReply:
 
 @dataclass(frozen=True)
 class _Context:
-    index: object
+    index: BM25Index
     few_shot: list[dict]
     fragment: str | None
 

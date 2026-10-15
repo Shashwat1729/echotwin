@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import threading
 from pathlib import Path
@@ -53,7 +54,5 @@ def _import_legacy_state(store: Store, legacy: Path) -> None:
             store.set_pointer(LEGACY_KEYS[key], None if value is None else str(value))
         else:
             store.kv_set(key, value)
-    try:
+    with contextlib.suppress(OSError):
         legacy.replace(legacy.with_name("state.json.migrated"))
-    except OSError:
-        pass

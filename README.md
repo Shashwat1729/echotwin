@@ -32,7 +32,10 @@ cloning — with Hindi, English, and Hinglish support.
   scripts, adaptive plans, quality + transcript + coverage analysis,
   reference selection, consent-gated synthesis with provenance.
 - **Three interfaces, one library** — Typer CLI, FastAPI service (localhost
-  default), Gradio studio (localhost default). Heavy ML stays optional.
+  default), Gradio studio (localhost default), all thin adapters over one
+  service layer. Heavy ML stays optional; chat works offline with the
+  built-in n-gram engine and can use a local model or OpenAI-compatible
+  server when available.
 
 ## Quickstart
 

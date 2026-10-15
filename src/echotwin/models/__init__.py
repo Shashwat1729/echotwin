@@ -17,7 +17,8 @@ from .loader import (
     resolve_target_modules,
     unload,
 )
-from .ngram import NGramConfig, NGramGenerator, NGramModel, tokenize as ngram_tokenize
+from .ngram import NGramConfig, NGramGenerator, NGramModel
+from .ngram import tokenize as ngram_tokenize
 from .registry import DEFAULT_MODEL, REGISTRY, ModelSpec, get_model_spec, list_models
 
 __all__ = [

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from echotwin.models.generation import GeneratorConfig
 from echotwin.models.ngram import NGramConfig, NGramGenerator, NGramModel, tokenize
@@ -52,7 +53,7 @@ class TestNGram:
         assert loaded.generate("kal", seed=3) == m.generate("kal", seed=3)
 
     def test_order_validation(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             NGramModel(order=9)
 
     def test_generator_interface(self):

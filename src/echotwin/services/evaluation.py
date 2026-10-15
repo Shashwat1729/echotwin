@@ -9,6 +9,7 @@ from pathlib import Path
 from ..dataset.retrieval import RetrievalConfig, build_index_from_examples
 from ..engines import registry
 from ..evaluation.baseline import RETRIEVAL_METHODS, heldout_prompts, run_baseline
+from ..evaluation.metrics import EvaluationReport
 from ..exceptions import EvaluationError
 from ..settings import get_settings
 from . import datasets, profiles
@@ -21,7 +22,7 @@ FEW_SHOT_N = 5
 class EvalResult:
     run_id: str
     predictions_path: Path
-    report: object
+    report: EvaluationReport
 
 
 def run(

@@ -46,7 +46,9 @@ def build(ctx: PageContext) -> None:
     status = gr.HTML(
         ""
         if choices
-        else components.empty_state("No engine ready", "Prepare a dataset to enable the n-gram engine.")
+        else components.empty_state(
+            "No engine ready", "Prepare a dataset to enable the n-gram engine."
+        )
     )
     chatbot = gr.Chatbot(height=420, label="Clone")
     session = gr.State(chat_service.ChatSession())

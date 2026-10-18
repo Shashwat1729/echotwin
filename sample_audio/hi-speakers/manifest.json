@@ -1,0 +1,76 @@
+{
+  "clips": [
+    {
+      "file": "fleurs-0-0.wav",
+      "speaker_group": "fleurs-0",
+      "gender": "0",
+      "utterance_id": "1604",
+      "sample_rate": 16000,
+      "seconds": 26.28,
+      "transcript": "",
+      "source_repo": "google/fleurs",
+      "source_config": "hi_in",
+      "license": "CC BY 4.0 (FLEURS / Google Research)"
+    },
+    {
+      "file": "fleurs-0-1.wav",
+      "speaker_group": "fleurs-0",
+      "gender": "0",
+      "utterance_id": "1573",
+      "sample_rate": 16000,
+      "seconds": 22.68,
+      "transcript": "",
+      "source_repo": "google/fleurs",
+      "source_config": "hi_in",
+      "license": "CC BY 4.0 (FLEURS / Google Research)"
+    },
+    {
+      "file": "fleurs-0-2.wav",
+      "speaker_group": "fleurs-0",
+      "gender": "0",
+      "utterance_id": "1608",
+      "sample_rate": 16000,
+      "seconds": 21.36,
+      "transcript": "",
+      "source_repo": "google/fleurs",
+      "source_config": "hi_in",
+      "license": "CC BY 4.0 (FLEURS / Google Research)"
+    },
+    {
+      "file": "fleurs-1-0.wav",
+      "speaker_group": "fleurs-1",
+      "gender": "1",
+      "utterance_id": "1525",
+      "sample_rate": 16000,
+      "seconds": 26.34,
+      "transcript": "",
+      "source_repo": "google/fleurs",
+      "source_config": "hi_in",
+      "license": "CC BY 4.0 (FLEURS / Google Research)"
+    },
+    {
+      "file": "fleurs-1-1.wav",
+      "speaker_group": "fleurs-1",
+      "gender": "1",
+      "utterance_id": "1512",
+      "sample_rate": 16000,
+      "seconds": 19.86,
+      "transcript": "",
+      "source_repo": "google/fleurs",
+      "source_config": "hi_in",
+      "license": "CC BY 4.0 (FLEURS / Google Research)"
+    },
+    {
+      "file": "fleurs-1-2.wav",
+      "speaker_group": "fleurs-1",
+      "gender": "1",
+      "utterance_id": "1620",
+      "sample_rate": 16000,
+      "seconds": 19.08,
+      "transcript": "",
+      "source_repo": "google/fleurs",
+      "source_config": "hi_in",
+      "license": "CC BY 4.0 (FLEURS / Google Research)"
+    }
+  ]
+}

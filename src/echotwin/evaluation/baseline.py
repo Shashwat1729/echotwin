@@ -170,15 +170,22 @@ def run_baseline(
 
     refs = [r["reference"] for r in records if r.get("generated")]
     gens = [r["generated"] for r in records if r.get("generated")]
-    style: StyleComparison | None = compare_style(refs, gens) if gens else None
+    context_texts = [" ".join(m.get("content", "") for m in p.get("messages", [])) for p in prompts]
+    style: StyleComparison | None = (
+        compare_style(refs, gens, context_texts=context_texts, known_terms=train_texts)
+        if gens
+        else None
+    )
     contamination = (
         memorization_overlap(gens, train_texts).model_dump() if (train_texts and gens) else None
     )
+    n_failed = sum(1 for r in records if r.get("error"))
     report = EvaluationReport(
         report_id=f"eval-{method}-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}",
         created_at=datetime.now(UTC).isoformat(),
         method=method,
         prompt_count=len(prompts),
+        n_failed=n_failed,
         predictions_path=str(pred_path),
         style=style,
         contamination=contamination,
@@ -187,7 +194,11 @@ def run_baseline(
             for r in records[:200]
         ],
         sample_size_warning=(
-            "Prompt count below 30; metrics are indicative only." if len(prompts) < 30 else None
+            f"{n_failed}/{len(prompts)} generations FAILED; scores cover {len(gens)} only."
+            if n_failed
+            else (
+                "Prompt count below 30; metrics are indicative only." if len(prompts) < 30 else None
+            )
         ),
         limitations=[
             "Metrics are surface-level (style), not semantic;",
@@ -196,6 +207,11 @@ def run_baseline(
             "high train-overlap in contamination checks indicates memorization, not generalization.",
         ],
     )
+    if n_failed:
+        report.limitations.append(
+            f"{n_failed}/{len(prompts)} generations FAILED; the scores cover only the "
+            f"{len(gens)} successful prompt(s). Fix the generator before comparing methods."
+        )
     return records, pred_path, report
 
 

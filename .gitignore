@@ -51,7 +51,17 @@ benchmarks/results.json
 benchmarks/_tmp/
 
 # Fetched open speech samples (reproducible via scripts/fetch_sample_audio.py)
-sample_audio/
+# The audio itself is NOT committed (third-party licenses vary); the provenance
+# manifests are, so the evaluation set stays reproducible and attributable.
+sample_audio/**
+!sample_audio/manifest.json
+!sample_audio/hi-speakers/
+!sample_audio/hi-speakers/manifest.json
+sample_audio/**/*.wav
+sample_audio/**/*.parquet
+sample_audio/**/*.flac
+sample_audio/**/*.mp3
+sample_audio/**/*.ogg
 
 # Notebook checkpoints
 .ipynb_checkpoints/

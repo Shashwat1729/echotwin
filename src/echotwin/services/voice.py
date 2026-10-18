@@ -29,7 +29,11 @@ from ..voice.consent import (
     revoke_consent as _revoke,
 )
 from ..voice.metadata import RecordingEntry, VoiceProfile, load_profile, save_profile
-from ..voice.phoneme_coverage import CoverageReport, analyze_texts
+from ..voice.phoneme_coverage import (
+    CoverageReport,
+    analyze_texts,
+    coverage_texts_for_recordings,
+)
 from ..voice.recording_plan import RecordingPlan, RecordingPreferences, generate_plan
 from ..voice.reference_selection import ReferenceCandidate, select_references
 from ..voice.registry import get_backend
@@ -115,7 +119,9 @@ def analyze() -> list[dict]:
                     "summary": summary_line(rep),
                 }
             )
-    prof.coverage_report = analyze_texts([r.transcript or "" for r in prof.recordings]).model_dump()
+    prof.coverage_report = analyze_texts(
+        coverage_texts_for_recordings(prof.recordings)
+    ).model_dump()
     save_profile(prof)
     return rows
 

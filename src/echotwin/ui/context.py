@@ -37,7 +37,9 @@ def warn(exc: Exception) -> str:
     else:
         log.exception("unexpected UI error")  # logs the traceback, never message content
         message, kind = f"Unexpected error ({type(exc).__name__}). See the server log.", "error"
-    with contextlib.suppress(Exception):  # outside a Gradio request (tests) there is no toast target
+    with contextlib.suppress(
+        Exception
+    ):  # outside a Gradio request (tests) there is no toast target
         gr.Warning(message)
     return render.callout(kind, message)
 

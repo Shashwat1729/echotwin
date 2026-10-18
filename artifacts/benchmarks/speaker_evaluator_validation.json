@@ -1,0 +1,25 @@
+{
+  "evaluator": "ecapa-tdnn",
+  "threshold": 0.25,
+  "same_speaker_case": {
+    "clip": "hi-shruti-03.wav",
+    "raw": 0.6038,
+    "same_speaker_baseline": 0.6152,
+    "calibrated": 0.9815,
+    "judged_same": true
+  },
+  "different_speaker_case": {
+    "clip": "fleurs-0-0.wav",
+    "raw": -0.0444,
+    "same_speaker_baseline": 0.6152,
+    "calibrated": -0.0722,
+    "judged_same": false
+  },
+  "separates": true,
+  "references": [
+    "hi-shruti-00.wav",
+    "hi-shruti-01.wav",
+    "hi-shruti-02.wav"
+  ],
+  "note": "Ground truth: hi-shruti clips are one speaker; FLEURS hi_in clips are a different speaker (different corpus/recording session)."
+}

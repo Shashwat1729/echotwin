@@ -9,6 +9,7 @@ natural voice.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 from pydantic import BaseModel, Field
@@ -33,7 +34,9 @@ class QualityThresholds(BaseModel):
 
 class QualityIssue(BaseModel):
     code: str
-    severity: str = Field(default="info", description="info | warning | error")
+    severity: Literal["info", "warning", "error"] = Field(
+        default="info", description="info | warning | error"
+    )
     message: str = ""
     hint: str = ""
 
@@ -69,6 +72,10 @@ class QualityReport(BaseModel):
 
 
 def frame_signal(samples: np.ndarray, sr: int, frame_ms: int, hop_ms: int) -> np.ndarray:
+    # `as_strided` assumes a unit stride. A non-contiguous input (e.g. base[::2])
+    # made the last frame read past the end of the buffer, silently corrupting
+    # every RMS-derived measurement. Force contiguity first.
+    samples = np.ascontiguousarray(samples, dtype=np.float32)
     frame_len = max(1, int(sr * frame_ms / 1000))
     hop_len = max(1, int(sr * hop_ms / 1000))
     if len(samples) < frame_len:
@@ -181,7 +188,7 @@ def analyze_wave_array(
         issues.append(
             QualityIssue(
                 code="clipping",
-                severity="failure",
+                severity="error",
                 message="The signal appears clipped.",
                 hint="Re-record with lower input gain to avoid distortion.",
             )
@@ -215,7 +222,7 @@ def analyze_wave_array(
         )
 
     severities = [i.severity for i in issues]
-    if "error" in severities or "failure" in severities:
+    if "error" in severities:
         verdict = "fail"
     elif "warning" in severities:
         verdict = "warning"

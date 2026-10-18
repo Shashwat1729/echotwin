@@ -4,6 +4,12 @@ Job state lives in the workspace Store, so it survives restarts and every adapte
 sees the same list. Functions run on a small thread pool; "heavy" jobs (model
 loads, training, synthesis) are serialised by a semaphore. Cancellation is
 cooperative: the job function polls ``ctx.cancelled()``.
+
+A cancel requested after the work already produced output cannot undo it, so
+that case ends as ``completed_cancelled`` (results kept) rather than
+``cancelled``, which previously reported a "nothing happened" status for work
+that had in fact been committed. A cooperatively-stopped function returns
+``None`` and still ends as ``cancelled``.
 """
 
 from __future__ import annotations
@@ -18,7 +24,7 @@ from typing import Any
 
 from ..workspace import get_store
 
-TERMINAL = {"completed", "failed", "cancelled"}
+TERMINAL = {"completed", "completed_cancelled", "failed", "cancelled"}
 _MAX_ERROR = 200
 
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="echotwin-job")
@@ -78,8 +84,25 @@ def _run(
             except Exception as exc:
                 _finish(job_id, "failed", error=f"{type(exc).__name__}: {exc}"[:_MAX_ERROR])
                 return
-            if event.is_set():
+            # A cancel flag set while `fn` was already running cannot undo the work it
+            # performed (checkpoints written, rows committed).
+            #   fn returned None  -> it stopped cooperatively: "cancelled".
+            #   fn returned a result -> real output exists, so keep it and say the
+            #   cancellation arrived too late, instead of reporting "cancelled"
+            #   and discarding work that was in fact committed.
+            if event.is_set() and result is None:
                 _finish(job_id, "cancelled")
+            elif event.is_set():
+                _finish(
+                    job_id,
+                    "completed_cancelled",
+                    progress=1.0,
+                    result=result,
+                    error=(
+                        "Cancellation was requested but the job had already "
+                        "produced results; they were kept."
+                    )[:_MAX_ERROR],
+                )
             else:
                 _finish(job_id, "completed", progress=1.0, result=result)
         finally:

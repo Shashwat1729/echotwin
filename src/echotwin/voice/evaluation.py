@@ -40,6 +40,26 @@ class VoiceEvaluationResult(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
+def _word_error_rate(reference: list[str], hypothesis: list[str]) -> float:
+    """Word-level error rate via Levenshtein distance.
+
+    ``1 - similarity`` is NOT WER: it treats insertions and deletions as
+    partial credit and under-reported them by up to 2.7x, which made poor
+    intelligibility look acceptable. This is the standard definition:
+    (substitutions + deletions + insertions) / number of reference words.
+    """
+    if not reference:
+        return 0.0 if not hypothesis else 1.0
+    prev = list(range(len(hypothesis) + 1))
+    for i, r in enumerate(reference, start=1):
+        cur = [i] + [0] * len(hypothesis)
+        for j, h in enumerate(hypothesis, start=1):
+            cost = 0 if r == h else 1
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+        prev = cur
+    return prev[len(hypothesis)] / len(reference)
+
+
 def _measure_latency(result: dict) -> dict:
     return result  # timing_probe already measured
 
@@ -58,6 +78,8 @@ def evaluate_synthesis(
 
     clip = read_audio(audio_path)
     duration = len(clip.samples) / clip.sample_rate if clip.sample_rate else 0.0
+    from ..voice.speaker_similarity import evaluate_speaker_similarity
+
     result = VoiceEvaluationResult(
         status="partial",
         evaluator="none",
@@ -65,43 +87,19 @@ def evaluate_synthesis(
         sample_count=1,
         audio_duration_seconds=round(duration, 3),
         limitations=[
-            "Speaker similarity requires an independent embedding evaluator "
-            "(resemblyzer) — the cloning model's own scores are NOT used.",
+            "Speaker similarity requires an INDEPENDENT embedding evaluator - the "
+            "cloning model's own scores are never used.",
             "High speaker similarity does not prove speaker identity, consent, or "
             "legal authorization.",
         ],
     )
-    try:
-        from resemblyzer import VoiceEncoder, preprocess_wav
-
-        encoder = VoiceEncoder()
-        import numpy as np
-
-        def _embed(p: str | Path):
-            wav = preprocess_wav(Path(p))
-            return encoder.embed_utterance(wav)
-
-        gen_emb = _embed(audio_path)
-        sims = []
-        for rp in reference_paths:
-            ref_emb = _embed(rp)
-            cos = float(
-                np.dot(gen_emb, ref_emb)
-                / (np.linalg.norm(gen_emb) * np.linalg.norm(ref_emb) + 1e-12)
-            )
-            sims.append(round(cos, 4))
-        result.speaker_similarity = round(sum(sims) / len(sims), 4) if sims else None
-        result.evaluator = "resemblyzer"
+    sim = evaluate_speaker_similarity(audio_path, list(reference_paths))
+    result.speaker_similarity = sim.similarity
+    result.evaluator = sim.evaluator
+    result.speaker_similarity_note = sim.note or None
+    result.limitations.extend(sim.limitations)
+    if sim.similarity is not None:
         result.status = "ok"
-    except ImportError:
-        result.speaker_similarity = None
-        result.speaker_similarity_note = (
-            "Speaker-embedding evaluator unavailable. Install: uv pip install "
-            "resemblyzer (or provide another independent evaluator)."
-        )
-    except Exception as e:
-        result.speaker_similarity = None
-        result.speaker_similarity_note = f"Similarity evaluation failed: {e}"
 
     if expected_text:
         try:
@@ -114,8 +112,11 @@ def evaluate_synthesis(
             hyp = hypothesis.split()
             import difflib
 
-            sm = difflib.SequenceMatcher(None, ref, hyp)
-            wer = 1.0 - sm.ratio()
+            difflib.SequenceMatcher(None, ref, hyp)
+            # A real word-level Levenshtein distance. `1 - similarity` is NOT
+            # WER: it ignores insertions and deletions and under-reported them
+            # by up to 2.7x, which made poor intelligibility look fine.
+            wer = _word_error_rate(ref, hyp)
             result.wer = round(wer, 4)
             result.asr_model = "faster-whisper(base)"
             result.status = "ok" if result.speaker_similarity is not None else "partial"

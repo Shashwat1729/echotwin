@@ -15,8 +15,18 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, Field
 
-_EMOJI_RE = re.compile("[\u2600-\u27bf\u2b00-\u2bff\ufe0f\U0001f000-\U0001faff\u200d]")
-_WORD_RE = re.compile(r"[A-Za-z\u0900-\u097F']+")
+from ..tokenization import tokenize_words
+
+# Emoji are matched as *grapheme-ish clusters*: the variation selector (VS16)
+# and the zero-width joiner (ZWJ) are part of the cluster, not separate emoji.
+# Counting them individually inflated compound emoji (a family ZWJ sequence was
+# counted 7 times), which made the emoji-density metric disagree with itself.
+_EMOJI_RE = re.compile(
+    "(?:[\u2600-\u27bf\u2b00-\u2bff\U0001f000-\U0001faff\U0001f1e6-\U0001f1ff]"
+    "[\ufe0f\U0001f3fb-\U0001f3ff]*(?:\u200d"
+    "(?:[\u2600-\u27bf\u2b00-\u2bff\U0001f000-\U0001faff\U0001f1e6-\U0001f1ff])"
+    "[\ufe0f\U0001f3fb-\U0001f3ff]*)*)+"
+)
 _PUNCT_CHARS = ".,!?;:'\"-…—()[]{}"
 
 
@@ -26,7 +36,7 @@ def char_ngrams(text: str, n: int = 3) -> Counter:
 
 
 def word_ngrams(text: str, n: int = 2) -> Counter:
-    words = _WORD_RE.findall(text.lower())
+    words = tokenize_words(text)
     return Counter(tuple(words[i : i + n]) for i in range(0, max(0, len(words) - n + 1)))
 
 
@@ -139,7 +149,7 @@ def abbreviation_overlap(ref_texts: list[str], gen_texts: list[str]) -> dict:
     def abbrevs(texts: list[str]) -> set[str]:
         found: set[str] = set()
         for t in texts:
-            for w in _WORD_RE.findall(t):
+            for w in tokenize_words(t):
                 if w.lower() in common:
                     found.add(w.lower())
         return found
@@ -215,6 +225,95 @@ def duplicate_rate(texts: list[str]) -> float:
     return round(dups / len(texts), 4)
 
 
+# ---------------------------------------------------------------------------
+# Semantics + fidelity axes (personalization-benchmark style)
+# ---------------------------------------------------------------------------
+_ENTITY_RE = re.compile(
+    r"(?<![\w])(?:@[\w.]+|(?:\+?\d[\d\s().-]{5,}\d)|https?://\S+|\b[A-Z][a-z]{2,}\b)(?![\w])"
+)
+
+
+def prompt_discrimination(generated_texts: list[str]) -> dict:
+    """Did the model actually respond to the prompt, or emit one canned reply?
+
+    A personalization system that answers every held-out prompt identically has
+    learned a register but *not* the conversation: the replies carry no
+    information about what was asked. We measure the share of generations that
+    are distinct from each other, plus the size of the most repeated reply.
+
+    This is the "semantics" axis of a personalization benchmark, expressed in a
+    way that is cheap, deterministic and honest: it cannot tell you whether a
+    reply is *correct*, only whether it varies with the input.
+    """
+    n = len(generated_texts)
+    if not n:
+        return {"n": 0, "distinct_ratio": None, "most_common_count": 0, "note": "no generations"}
+    norm = [re.sub(r"\s+", " ", t.strip().lower()) for t in generated_texts]
+    counts = Counter(norm)
+    _most_common, most_count = counts.most_common(1)[0]
+    return {
+        "n": n,
+        "distinct_ratio": round(len(counts) / n, 4),
+        "most_common_count": most_count,
+        "most_common_share": round(most_count / n, 4),
+        "repeated_reply_examples": sorted(
+            (t for t, c in counts.items() if c > 1), key=len, reverse=True
+        )[:3],
+        "note": (
+            "Low distinct_ratio means the model ignores the prompt and repeats a "
+            "canned reply; it does NOT measure whether replies are correct."
+        ),
+    }
+
+
+def unsupported_claims(
+    generated_texts: list[str],
+    context_texts: list[str] | None = None,
+    *,
+    known_terms: list[str] | None = None,
+) -> dict:
+    """Factual claims asserted by the model that it could not have known.
+
+    We look for *factual* tokens — numbers, @handles and URLs — in the
+    generations and check them against the conversation context and the
+    author's known vocabulary. Anything left over is **flagged**, not called a
+    hallucination: a personal model may legitimately reuse a number it learned
+    from earlier training data. Capitalised words are deliberately excluded
+    (sentence casing and names are far too noisy to score automatically).
+    """
+    known = {t.strip().lower() for t in (known_terms or []) if t.strip()}
+    context_blob = " ".join(context_texts or []).lower()
+    flagged: list[dict] = []
+    total_entities = 0
+    for i, text in enumerate(generated_texts):
+        for match in _ENTITY_RE.findall(text or ""):
+            token = match.strip()
+            if not token:
+                continue
+            if not (
+                any(ch.isdigit() for ch in token)
+                or token.startswith("@")
+                or token.startswith("http")
+            ):
+                continue
+            low = token.lower()
+            total_entities += 1
+            if low in known or (context_blob and low in context_blob):
+                continue
+            flagged.append({"index": i, "token": token, "kind": "number_or_handle"})
+    return {
+        "n_entities_checked": total_entities,
+        "n_unsupported": len(flagged),
+        "unsupported_rate": round(len(flagged) / total_entities, 4) if total_entities else 0.0,
+        "examples": flagged[:20],
+        "note": (
+            "Flagged tokens are numbers/handles/URLs that appear in neither the "
+            "conversation context nor the author's known vocabulary. They are "
+            "candidates for review, not proven fabrications."
+        ),
+    }
+
+
 class StyleComparison(BaseModel):
     n_reference: int
     n_generated: int
@@ -233,10 +332,18 @@ class StyleComparison(BaseModel):
     language_distribution_distance: float | None = None
     repetition_rate_gen: float | None = None
     duplicate_rate_gen: float | None = None
+    prompt_discrimination: dict | None = None
+    unsupported_claims: dict | None = None
     limitations: list[str] = Field(default_factory=list)
 
 
-def compare_style(reference_texts: list[str], generated_texts: list[str]) -> StyleComparison:
+def compare_style(
+    reference_texts: list[str],
+    generated_texts: list[str],
+    *,
+    context_texts: list[str] | None = None,
+    known_terms: list[str] | None = None,
+) -> StyleComparison:
     ref_punct = punctuation_profile(" ".join(reference_texts))
     gen_punct = punctuation_profile(" ".join(generated_texts))
     ref_caps = capitalization_profile(reference_texts)
@@ -269,6 +376,12 @@ def compare_style(reference_texts: list[str], generated_texts: list[str]) -> Sty
         ),
         repetition_rate_gen=repetition_rate(generated_texts),
         duplicate_rate_gen=duplicate_rate(generated_texts),
+        prompt_discrimination=prompt_discrimination(generated_texts),
+        unsupported_claims=(
+            unsupported_claims(generated_texts, context_texts, known_terms=known_terms)
+            if generated_texts
+            else None
+        ),
         limitations=limitations,
     )
 
@@ -288,6 +401,11 @@ class EvaluationReport(BaseModel):
     created_at: str
     method: str
     prompt_count: int
+    n_failed: int = Field(
+        default=0,
+        description="Generations that errored out. A non-zero value means the scores "
+        "cover only the successful subset.",
+    )
     predictions_path: str | None = None
     style: StyleComparison | None = None
     contamination: dict | None = None

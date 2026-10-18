@@ -40,7 +40,9 @@ def _write_dataset(ds_id: str = "ds-t") -> None:
     exs = [
         TrainingExample(
             messages=[ChatTurn(role="user", content="ping"), ChatTurn(role="assistant", content=t)],
-            metadata=ExampleMetadata(conversation_id=f"c{i}", language="hinglish", example_type="natural_reply"),
+            metadata=ExampleMetadata(
+                conversation_id=f"c{i}", language="hinglish", example_type="natural_reply"
+            ),
         )
         for i, t in enumerate(TEXTS)
     ]
@@ -189,4 +191,7 @@ def test_plain_method_sends_prompt_only():
 
     prompt = {"messages": [{"role": "user", "content": "hi"}]}
     assert "plain" in METHODS
-    assert build_messages("plain", prompt, "STYLE", [{"context": "a", "response": "b"}]) == prompt["messages"]
+    assert (
+        build_messages("plain", prompt, "STYLE", [{"context": "a", "response": "b"}])
+        == prompt["messages"]
+    )

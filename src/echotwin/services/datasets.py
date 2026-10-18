@@ -61,9 +61,7 @@ def prepare(
             max_target_chars=max_target_chars,
         ),
     )
-    split_cfg = SplitConfig(
-        mode=split_mode, test_fraction=test_fraction, val_fraction=val_fraction
-    )
+    split_cfg = SplitConfig(mode=split_mode, test_fraction=test_fraction, val_fraction=val_fraction)
     split = split_dataset(built, split_cfg)
 
     dataset_id = f"dataset-{import_id}"

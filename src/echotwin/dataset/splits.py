@@ -91,31 +91,56 @@ def split_dataset(built: BuiltDataset, cfg: SplitConfig | None = None) -> Datase
             ),
         )
 
+    def _counts(n_total: int, test_fraction: float, val_fraction: float) -> tuple[int, int]:
+        """Split sizes honouring an explicit zero fraction.
+
+        ``max(1, int(n * f))`` turned ``f=0`` into 1, so a caller asking for no
+        holdout silently lost 2 conversations. A zero fraction now really means
+        zero; if both holdouts are requested but would consume everything, one
+        conversation is carved out for training instead.
+        """
+        n_test = int(n_total * test_fraction)
+        n_val = int(n_total * val_fraction)
+        # A requested-but-rounded-to-zero fraction (e.g. 10% of 4) still gets one
+        # holdout conversation while training can spare it. An EXPLICIT 0.0 is
+        # honoured as zero.
+        if n_total >= 3 and test_fraction > 0 and n_test == 0:
+            n_test = 1
+        if n_total >= 4 and val_fraction > 0 and n_val == 0:
+            n_val = 1
+        if n_test + n_val >= n_total:
+            if n_test == 0 and n_val == 0:
+                return 0, 0
+            n_val = 0
+            n_test = max(1, n_total // 4)
+        return n_test, n_val
+
     if cfg.mode == "conversation":
         rng = random.Random(cfg.seed)
         shuffled = convo_ids[:]
         rng.shuffle(shuffled)
-        n_test = max(1, int(len(shuffled) * cfg.test_fraction))
-        n_val = max(1, int(len(shuffled) * cfg.val_fraction))
-        if n_test + n_val >= len(shuffled):
-            n_val = 0
-            n_test = max(1, len(shuffled) // 4)
+        n_test, n_val = _counts(len(shuffled), cfg.test_fraction, cfg.val_fraction)
         test_ids = set(shuffled[:n_test])
         val_ids = set(shuffled[n_test : n_test + n_val])
         train_ids = [c for c in shuffled[n_test + n_val :]]
     else:  # chronological: newest conversations are held out
-        ordered = sorted(
-            convo_ids,
-            key=lambda c: min((ex.metadata.timestamp or "" for ex in by_convo[c]), default=""),
-        )
-        n_test = max(1, int(len(ordered) * cfg.test_fraction))
-        n_val = max(1, int(len(ordered) * cfg.val_fraction))
-        if n_test + n_val >= len(ordered):
-            n_val = 0
-            n_test = max(1, len(ordered) // 4)
-        test_ids = set(ordered[-n_test:])
-        val_ids = set(ordered[-n_test - n_val : -n_test])
-        train_ids = [c for c in ordered[: -n_test - n_val]]
+        dated = {
+            c: min((ex.metadata.timestamp or "" for ex in by_convo[c]), default="")
+            for c in convo_ids
+        }
+        if all(not v for v in dated.values()):
+            # Every example lacks a timestamp, so a chronological order is not
+            # derivable and sorting would silently fall back to alphabetical.
+            warnings.append(
+                "Chronological split requested but no example has a timestamp; "
+                "the ordering would be arbitrary. Import exports with intact "
+                "timestamps to enable temporal leakage protection."
+            )
+        ordered = sorted(convo_ids, key=lambda c: (dated[c] == "", dated[c], c))
+        n_test, n_val = _counts(len(ordered), cfg.test_fraction, cfg.val_fraction)
+        test_ids = set(ordered[-n_test:]) if n_test else set()
+        val_ids = set(ordered[-n_test - n_val : -n_test]) if n_val else set()
+        train_ids = [c for c in ordered[: len(ordered) - n_test - n_val]]
 
     def pick(ids: set[str] | list[str]) -> list[TrainingExample]:
         return [ex for c in ids for ex in by_convo[c]]

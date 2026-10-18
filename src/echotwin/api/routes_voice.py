@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from ..exceptions import EchoTwinError
@@ -78,7 +80,11 @@ def voice_scripts(language: str = "hi", category: str | None = None) -> dict:
 def voice_profiles() -> dict:
     from ..voice.metadata import list_profiles
 
-    return {"profiles": [p.model_dump() for p in list_profiles()]}
+    profiles, corrupt = list_profiles()
+    return {
+        "profiles": [p.model_dump() for p in profiles],
+        "corrupt_profiles": corrupt,
+    }
 
 
 @router.post("/voice/profiles")
@@ -103,7 +109,7 @@ async def upload_recording(profile_id: str, file: UploadFile = File(...)) -> dic
     from ..voice.audio_ingestion import read_audio
     from ..voice.audio_quality import analyze_audio_file
     from ..voice.metadata import RecordingEntry, load_profile, save_profile
-    from ..voice.phoneme_coverage import analyze_texts
+    from ..voice.phoneme_coverage import analyze_texts, coverage_texts_for_recordings
 
     data = await file.read()
     path = service.save_upload(file.filename or "recording.wav", data)
@@ -113,18 +119,26 @@ async def upload_recording(profile_id: str, file: UploadFile = File(...)) -> dic
         report = analyze_audio_file(path)
     except EchoTwinError as e:
         raise HTTPException(400, str(e)) from e
+    # A unique id, not the filename stem: two uploads named "voice.wav" would
+    # otherwise collide, and synthesis picks references first-wins-by-id.
     rec = RecordingEntry(
-        recording_id=path.stem,
+        recording_id=f"rec-{uuid.uuid4().hex[:12]}",
         path=str(path),
         language="unknown",
         quality_verdict=report.verdict,
-        duration_seconds=clip.sample_rate and round(len(clip.samples) / clip.sample_rate, 3),
+        # Explicit division: `sample_rate and ...` yielded the integer 0 (a falsy
+        # sentinel) instead of raising or defaulting when the rate was unknown.
+        duration_seconds=(
+            round(len(clip.samples) / clip.sample_rate, 3) if clip.sample_rate else 0.0
+        ),
         sample_rate=clip.sample_rate,
         quality_report=report.model_dump(),
         category="uploaded",
     )
     prof.recordings.append(rec)
-    prof.coverage_report = analyze_texts([r.transcript or "" for r in prof.recordings]).model_dump()
+    prof.coverage_report = analyze_texts(
+        coverage_texts_for_recordings(prof.recordings)
+    ).model_dump()
     save_profile(prof)
     return {"recording": rec.model_dump(), "quality": report.model_dump()}
 
@@ -155,10 +169,10 @@ def set_transcript(profile_id: str, recording_id: str, payload: dict) -> dict:
 @router.post("/voice/coverage/analyze")
 def analyze_coverage(profile_id: str) -> dict:
     from ..voice.metadata import load_profile, save_profile
-    from ..voice.phoneme_coverage import analyze_texts
+    from ..voice.phoneme_coverage import analyze_texts, coverage_texts_for_recordings
 
     prof = load_profile(profile_id)
-    report = analyze_texts([r.transcript or "" for r in prof.recordings])
+    report = analyze_texts(coverage_texts_for_recordings(prof.recordings))
     prof.coverage_report = report.model_dump()
     save_profile(prof)
     return report.model_dump()

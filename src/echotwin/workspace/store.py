@@ -115,9 +115,11 @@ class Store:
     # -- pointers ------------------------------------------------------------
     def pointer(self, name: str) -> str | None:
         _check_pointer(name)
-        row = self.conn().execute(
-            f"SELECT {name} AS v FROM workspace WHERE name='default'"
-        ).fetchone()
+        row = (
+            self.conn()
+            .execute(f"SELECT {name} AS v FROM workspace WHERE name='default'")
+            .fetchone()
+        )
         return row["v"] if row else None
 
     def set_pointer(self, name: str, value: str | None) -> None:
@@ -164,7 +166,9 @@ class Store:
                     job["created_at"],
                     job.get("started_at"),
                     job.get("finished_at"),
-                    json.dumps(job["result"], default=str) if job.get("result") is not None else None,
+                    json.dumps(job["result"], default=str)
+                    if job.get("result") is not None
+                    else None,
                     job.get("error"),
                 ),
             )

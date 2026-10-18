@@ -40,12 +40,28 @@ def normalize_words(text: str) -> list[str]:
     return [w.strip("'") for w in words if w.strip("'")]
 
 
-def _find_repeats(words: list[str], n: int = 2, min_count: int = 2) -> list[str]:
+def _find_repeats(
+    words: list[str],
+    n: int = 2,
+    min_count: int = 2,
+    reference: list[str] | None = None,
+) -> list[str]:
+    """Phrases the reader repeated MORE often than the script does.
+
+    Without the reference comparison, a script that legitimately contains a
+    repeated phrase (e.g. 'I will call you back. I will call you back.') was
+    flagged as a stumble on every flawless reading.
+    """
     seen: dict[str, int] = {}
     for i in range(len(words) - n + 1):
         phrase = " ".join(words[i : i + n])
         seen[phrase] = seen.get(phrase, 0) + 1
-    return [p for p, c in seen.items() if c >= min_count]
+    ref_counts: dict[str, int] = {}
+    if reference:
+        for i in range(len(reference) - n + 1):
+            phrase = " ".join(reference[i : i + n])
+            ref_counts[phrase] = ref_counts.get(phrase, 0) + 1
+    return [p for p, c in seen.items() if c >= min_count and c > ref_counts.get(p, 0)]
 
 
 def verify_transcript(

@@ -40,17 +40,48 @@ class LoadedExportBundle:
 
 
 def conversation_id_from_name(name: str, fallback: str) -> str:
-    """Derive a stable conversation id from a chat file name.
+    """Derive a stable, unique conversation id from a chat file path.
 
-    'WhatsApp Chat with Priya/_chat.txt' -> 'priya'
-    'Group 'Hostel Crew''_chat.txt        -> 'hostel-crew'
+    WhatsApp uses two layouts and BOTH must work:
+
+    * iOS     - ``WhatsApp Chat with Priya_chat.txt``  (the file name carries it)
+    * Android - ``WhatsApp Chat with Priya/_chat.txt`` (the DIRECTORY carries it)
+
+    Using only the file name made every Android chat collapse onto the same
+    positional fallback, so distinct chats merged into one conversation and the
+    held-out split silently emptied. Two chats that share a file name
+    (``A/notes.txt`` and ``B/notes.txt``) must likewise stay distinct.
     """
-    stem = Path(name).name
-    if stem.lower().endswith("_chat.txt"):
-        stem = stem[: -len("_chat.txt")]
+    path = Path(name)
+    file_stem = path.name
+    parent = path.parent.name
+
+    is_chat_file = file_stem.lower().endswith("_chat.txt")
+    stem = file_stem[: -len("_chat.txt")] if is_chat_file else file_stem
     stem = stem.strip().strip("'\"")
     stem = re.sub(r"^(whatsapp\s+chat\s+with|whatsapp\s+chat\s+from)\s+", "", stem, flags=re.I)
+    stem = stem.strip().strip("'\"")
+
+    if not stem:
+        # Android layout: the chat name is the parent directory.
+        stem = re.sub(
+            r"^(whatsapp\s+chat\s+with|whatsapp\s+chat\s+from)\s+",
+            "",
+            parent.strip().strip("'\""),
+            flags=re.I,
+        ).strip()
+        from_parent = True
+    else:
+        from_parent = False
+
     slug = re.sub(r"[^a-z0-9]+", "-", stem.lower()).strip("-")
+    if not slug:
+        return fallback[:40]
+    if parent and not from_parent:
+        # Same file name in different folders must not collapse onto one id.
+        parent_slug = re.sub(r"[^a-z0-9]+", "-", parent.lower()).strip("-")
+        if parent_slug and parent_slug != slug:
+            slug = f"{parent_slug}-{slug}"
     return slug[:40] or fallback
 
 

@@ -185,7 +185,7 @@ def format_for_sft(
     else:
         pos = 0
         found_any = False
-        for m in messages:
+        for i, m in enumerate(messages):
             if m.get("role") != "assistant":
                 continue
             content_ids = list(
@@ -193,7 +193,18 @@ def format_for_sft(
             )
             if not content_ids:
                 continue
-            hit = _find_subseq(full_ids, content_ids, pos)
+            # Start after everything rendered before this turn. Searching from
+            # the previous span (or from 0) matched the WRONG occurrence when a
+            # user message repeated the reply text, which trained the model to
+            # emit user turns.
+            prefix_ids = list(
+                tokenizer(
+                    _render_template(tokenizer, messages[:i], add_generation_prompt=False),
+                    add_special_tokens=False,
+                )["input_ids"]
+            )
+            search_from = max(pos, min(len(prefix_ids), len(full_ids)))
+            hit = _find_subseq(full_ids, content_ids, search_from)
             if hit is None:
                 continue  # leave uncertain spans masked; never train blindly
             labels[hit : hit + len(content_ids)] = full_ids[hit : hit + len(content_ids)]
@@ -355,7 +366,11 @@ def run_sft(
             report_to=cfg.report_to,
             gradient_checkpointing=cfg.gradient_checkpointing,
             remove_unused_columns=False,
-            eval_strategy="steps" if (has_eval and cfg.eval_steps) else "no",
+            # Best-checkpoint selection REQUIRES an eval strategy. Gating it on
+            # `cfg.eval_steps` (which defaults to None) produced
+            # eval_strategy="no" together with load_best_model_at_end=True,
+            # which transformers rejects with a ValueError.
+            eval_strategy="steps" if has_eval else "no",
             eval_steps=cfg.eval_steps or max(25, cfg.logging_steps * 5),
             load_best_model_at_end=bool(has_eval),
             metric_for_best_model="eval_loss" if has_eval else None,

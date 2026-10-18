@@ -1,0 +1,57 @@
+{
+  "evaluator": "microsoft/wavlm-base-plus-sv",
+  "protocol": "16 kHz, cosine similarity, field-standard (Seed-TTS-eval / ClonEval)",
+  "field_threshold_for_clone_vs_reference": 0.7,
+  "groups": {
+    "same_speaker_fleurs_g0 (different utterances)": {
+      "n": 3,
+      "mean": 0.7819,
+      "min": 0.6963,
+      "max": 0.8805
+    },
+    "same_speaker_fleurs_g1 (different utterances)": {
+      "n": 3,
+      "mean": 0.8163,
+      "min": 0.7051,
+      "max": 0.9144
+    },
+    "different_speaker_fleurs_g0_vs_g1": {
+      "n": 9,
+      "mean": 0.7139,
+      "min": 0.5321,
+      "max": 0.9449
+    },
+    "same_speaker_shruti (read, same speaker)": {
+      "n": 6,
+      "mean": 0.9728,
+      "min": 0.9595,
+      "max": 0.9785
+    },
+    "same_speaker_lingua_libre (0.8s words)": {
+      "n": 6,
+      "mean": 0.7946,
+      "min": 0.6968,
+      "max": 0.8824
+    },
+    "different_corpus_librispeech_vs_fleurs": {
+      "n": 4,
+      "mean": 0.516,
+      "min": 0.3587,
+      "max": 0.6601
+    }
+  },
+  "controlled_separation": {
+    "same_speaker_mean": 0.7991,
+    "different_speaker_mean": 0.7139,
+    "gap": 0.0852,
+    "same_speaker_min": 0.6963,
+    "different_speaker_max": 0.9449,
+    "fully_separated": false,
+    "empirical_midpoint": 0.7565
+  },
+  "findings": [
+    "Absolute cosine scores depend strongly on the reference conditions: the same speaker scores ~0.97 on long read utterances but ~0.79 on 0.8s single words.",
+    "Therefore a fixed threshold is not portable across reference sets; scores must be read against a same-speaker baseline measured from the user's own clips.",
+    "Speaker-similarity is a timbre proxy only: it is not evidence of identity, consent, or authorisation."
+  ]
+}

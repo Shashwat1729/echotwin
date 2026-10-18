@@ -38,11 +38,15 @@ class TestReferenceSelection:
             ),
         ]
         d = select_references(cands, caps)
-        # single-reference backend -> exactly one clip, the best (b: longest, tied score)
+        # single-reference backend -> exactly ONE clip is used (the best: b)
         assert len(d.selected) == 1
         assert d.selected[0].recording_id == "b"
+        # ...but per_language still maps the best clip for EVERY language, so
+        # the language-aware reference pick in synthesis.py can choose the
+        # English clip when English is requested. Previously the other
+        # language's clip appeared nowhere at all.
         assert d.per_language.get("hi") == "b"
-        assert len(d.per_language) == 1
+        assert d.per_language.get("en") == "c"
         assert d.alternates  # the rest remain alternates
 
     def test_multiple_references_when_supported(self):
@@ -115,7 +119,9 @@ class TestVoiceProfiles:
     def test_save_load_list_delete(self):
         prof = VoiceProfile(name="test", backend="voxcpm")
         save_profile(prof)
-        assert any(p.profile_id == prof.profile_id for p in list_profiles())
+        profiles, corrupt = list_profiles()
+        assert not corrupt
+        assert any(p.profile_id == prof.profile_id for p in profiles)
         loaded = load_profile(prof.profile_id)
         assert loaded.backend == "voxcpm"
         export_path = get_settings().home / "export.json"

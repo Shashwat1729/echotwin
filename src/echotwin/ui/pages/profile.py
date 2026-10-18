@@ -30,7 +30,12 @@ def do_build():
     try:
         result = profiles.build()
     except Exception as exc:
-        return components.empty_state("No profile", "Fix the problem below."), "", warn(exc), rail_value()
+        return (
+            components.empty_state("No profile", "Fix the problem below."),
+            "",
+            warn(exc),
+            rail_value(),
+        )
     profile = result.profile
     data = profile if isinstance(profile, dict) else profile.model_dump(mode="json")
     return _cards(data), result.fragment, data, rail_value()
@@ -39,7 +44,9 @@ def do_build():
 def build(ctx: PageContext) -> None:
     gr.Markdown("Measure how the author writes. The fragment below is what prompts receive.")
     build_btn = gr.Button("Build profile", variant="primary")
-    cards = gr.HTML(components.empty_state("No profile yet", "Build one to see the author's habits."))
+    cards = gr.HTML(
+        components.empty_state("No profile yet", "Build one to see the author's habits.")
+    )
     fragment = gr.Textbox(label="Prompt fragment", lines=6, interactive=False)
     with gr.Accordion("Full profile", open=False):
         data = gr.JSON()

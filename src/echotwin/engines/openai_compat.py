@@ -22,7 +22,9 @@ _LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 
 class OpenAICompatEngine(BaseEngine):
     kind = "openai"
-    capabilities = EngineCapabilities(uses_prompt_context=True, supports_seed=True, needs_network=True)
+    capabilities = EngineCapabilities(
+        uses_prompt_context=True, supports_seed=True, needs_network=True
+    )
 
     def __init__(
         self, base_url: str, model: str, api_key: str | None = None, timeout: float = 60
@@ -41,7 +43,11 @@ class OpenAICompatEngine(BaseEngine):
         self.name = f"openai:{model}"
 
     def _generate(self, messages: list[dict], cfg: GeneratorConfig) -> str:
-        payload: dict = {"model": self.model, "messages": messages, "max_tokens": cfg.max_new_tokens}
+        payload: dict = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": cfg.max_new_tokens,
+        }
         if cfg.temperature is not None:
             payload["temperature"] = cfg.temperature
         if cfg.top_p is not None:
@@ -60,7 +66,7 @@ class OpenAICompatEngine(BaseEngine):
         # Loopback calls must not go through a system proxy.
         open_: Callable[..., Any]
         if self._local:
-            open_ =urllib.request.build_opener(urllib.request.ProxyHandler({})).open
+            open_ = urllib.request.build_opener(urllib.request.ProxyHandler({})).open
         else:
             open_ = urllib.request.urlopen
         with open_(req, timeout=self.timeout) as resp:

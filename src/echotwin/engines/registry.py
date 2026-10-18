@@ -56,7 +56,9 @@ def _openai_config() -> dict | None:
 def _openai_factory(_ident: str, _dataset: str | None) -> BaseEngine:
     cfg = _openai_config()
     if cfg is None:
-        raise ModelNotAvailableError("No OpenAI-compatible endpoint configured. Add one in Settings.")
+        raise ModelNotAvailableError(
+            "No OpenAI-compatible endpoint configured. Add one in Settings."
+        )
     return OpenAICompatEngine(cfg["base_url"], cfg["model"], cfg.get("api_key"))
 
 
@@ -82,7 +84,10 @@ _install_defaults()
 
 
 def _hf_unavailable(spec) -> str | None:
-    if importlib.util.find_spec("transformers") is None or importlib.util.find_spec("torch") is None:
+    if (
+        importlib.util.find_spec("transformers") is None
+        or importlib.util.find_spec("torch") is None
+    ):
         return "transformers/torch not installed (uv pip install -e '.[train]')"
     hf_home = Path(os.environ.get("HF_HOME") or Path.home() / ".cache" / "huggingface")
     root = Path(os.environ.get("HF_HUB_CACHE") or hf_home / "hub")
@@ -129,7 +134,9 @@ def list_engines(dataset_id: str | None = None) -> list[EngineInfo]:
         )
     )
     if mock_allowed():
-        out.append(EngineInfo("mock", "mock", "Mock (tests only)", True, None, MockEngine.capabilities))
+        out.append(
+            EngineInfo("mock", "mock", "Mock (tests only)", True, None, MockEngine.capabilities)
+        )
     return out
 
 

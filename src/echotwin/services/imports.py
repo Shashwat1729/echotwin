@@ -92,7 +92,12 @@ def load_messages(import_id: str | None = None) -> tuple[list[Message], str]:
     import_id = import_id or get_store().pointer("current_import")
     if not import_id:
         raise ArtifactNotFoundError("No import yet. Import a WhatsApp export first.")
-    path = get_settings().artifacts_dir / "imports" / import_id / "messages.jsonl"
+    # The id arrives straight from a URL, so it is untrusted: sandbox it inside
+    # the imports directory before touching the filesystem.
+    from ..storage.paths import ensure_within
+
+    imports_dir = get_settings().artifacts_dir / "imports"
+    path = ensure_within(imports_dir, f"{import_id}/messages.jsonl")
     if not path.exists():
         raise ArtifactNotFoundError(f"Stored messages for import {import_id} are missing.")
     messages = [

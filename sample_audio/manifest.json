@@ -1,0 +1,103 @@
+{
+  "clips": [
+    {
+      "file": "en-libri-00.wav",
+      "sample_rate": 16000,
+      "seconds": 5.86,
+      "transcript_chars": 89,
+      "source_repo": "hf-internal-testing/librispeech_asr_dummy",
+      "license": "see dataset page",
+      "language": "en"
+    },
+    {
+      "file": "en-libri-01.wav",
+      "sample_rate": 16000,
+      "seconds": 4.82,
+      "transcript_chars": 63,
+      "source_repo": "hf-internal-testing/librispeech_asr_dummy",
+      "license": "see dataset page",
+      "language": "en"
+    },
+    {
+      "file": "en-libri-02.wav",
+      "sample_rate": 16000,
+      "seconds": 12.48,
+      "transcript_chars": 172,
+      "source_repo": "hf-internal-testing/librispeech_asr_dummy",
+      "license": "see dataset page",
+      "language": "en"
+    },
+    {
+      "file": "hi-shruti-00.wav",
+      "sample_rate": 16000,
+      "seconds": 7.2,
+      "transcript_chars": 132,
+      "source_repo": "Paytmlabs/S2R_Shrutilipi_hindi",
+      "license": "unknown",
+      "language": "hi"
+    },
+    {
+      "file": "hi-shruti-01.wav",
+      "sample_rate": 16000,
+      "seconds": 12.36,
+      "transcript_chars": 204,
+      "source_repo": "Paytmlabs/S2R_Shrutilipi_hindi",
+      "license": "unknown",
+      "language": "hi"
+    },
+    {
+      "file": "hi-shruti-02.wav",
+      "sample_rate": 16000,
+      "seconds": 3.84,
+      "transcript_chars": 70,
+      "source_repo": "Paytmlabs/S2R_Shrutilipi_hindi",
+      "license": "unknown",
+      "language": "hi"
+    },
+    {
+      "file": "hi-shruti-03.wav",
+      "sample_rate": 16000,
+      "seconds": 2.72,
+      "transcript_chars": 43,
+      "source_repo": "Paytmlabs/S2R_Shrutilipi_hindi",
+      "license": "unknown",
+      "language": "hi"
+    },
+    {
+      "file": "ll-00.wav",
+      "sample_rate": 48000,
+      "seconds": 0.8,
+      "transcript_chars": 4,
+      "source_url": "https://upload.wikimedia.org/wikipedia/commons/c/c2/LL-Q1568_%28hin%29-Bhuvanaalla-%E0%A4%96%E0%A4%BC%E0%A4%AC%E0%A4%B0.wav",
+      "license": "CC BY-SA 4.0 (Lingua Libre via Wikimedia Commons)",
+      "language": "hi"
+    },
+    {
+      "file": "ll-01.wav",
+      "sample_rate": 48000,
+      "seconds": 0.99,
+      "transcript_chars": 6,
+      "source_url": "https://upload.wikimedia.org/wikipedia/commons/f/f6/LL-Q1568_%28hin%29-Bhuvanaalla-%E0%A4%9C%E0%A5%88%E0%A4%95%E0%A5%8D%E0%A4%B8%E0%A4%A8.wav",
+      "license": "CC BY-SA 4.0 (Lingua Libre via Wikimedia Commons)",
+      "language": "hi"
+    },
+    {
+      "file": "ll-02.wav",
+      "sample_rate": 48000,
+      "seconds": 0.74,
+      "transcript_chars": 3,
+      "source_url": "https://upload.wikimedia.org/wikipedia/commons/3/38/LL-Q1568_%28hin%29-Bhuvanaalla-%E0%A4%AF%E0%A5%82%E0%A4%82.wav",
+      "license": "CC BY-SA 4.0 (Lingua Libre via Wikimedia Commons)",
+      "language": "hi"
+    },
+    {
+      "file": "ll-03.wav",
+      "sample_rate": 48000,
+      "seconds": 0.81,
+      "transcript_chars": 5,
+      "source_url": "https://upload.wikimedia.org/wikipedia/commons/8/80/LL-Q1568_%28hin%29-Bhuvanaalla-%E0%A4%B0%E0%A5%89%E0%A4%95%E0%A5%87%E0%A4%9F.wav",
+      "license": "CC BY-SA 4.0 (Lingua Libre via Wikimedia Commons)",
+      "language": "hi"
+    }
+  ]
+}

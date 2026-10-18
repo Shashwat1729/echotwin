@@ -38,6 +38,15 @@ from .pairwise import (
     save_judgments,
     summarize,
 )
+from .quality_loop import (
+    QualityGates,
+    QualityReport,
+    format_report,
+    measure_quality,
+)
+from .quality_loop import (
+    save_report as save_quality_report,
+)
 
 __all__ = [
     "METHODS",
@@ -46,6 +55,8 @@ __all__ = [
     "HumanJudgment",
     "PairwiseResult",
     "PairwiseSample",
+    "QualityGates",
+    "QualityReport",
     "StyleComparison",
     "abbreviation_overlap",
     "build_messages",
@@ -56,6 +67,7 @@ __all__ = [
     "compare_style",
     "duplicate_rate",
     "emoji_rate",
+    "format_report",
     "heldout_prompts",
     "judge_with_model",
     "language_distribution_distance",
@@ -63,6 +75,7 @@ __all__ = [
     "length_stats",
     "load_judgments",
     "load_predictions",
+    "measure_quality",
     "memorization_overlap",
     "profile_distance",
     "punctuation_profile",
@@ -70,6 +83,7 @@ __all__ = [
     "repetition_rate",
     "run_baseline",
     "save_judgments",
+    "save_quality_report",
     "save_report",
     "summarize",
     "top_phrase_reproduction",

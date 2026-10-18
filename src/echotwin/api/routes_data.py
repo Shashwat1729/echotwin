@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from fastapi import APIRouter, File, UploadFile
+from pydantic import ValidationError
 
 from ..exceptions import ArtifactNotFoundError, DatasetError, EchoTwinError
 from ..profiling.style_profile import StyleProfile
@@ -100,12 +101,25 @@ def edit_profile(payload: dict) -> dict:
     """Edit the style profile JSON (e.g. editable_notes)."""
     path = _profile_path()
     profile = StyleProfile.model_validate_json(path.read_text(encoding="utf-8"))
-    allowed = {"editable_notes", "notes", "name"}
-    data = {k: v for k, v in payload.items() if k in allowed}
+    # Only fields that actually exist on the model are editable, and the update
+    # is RE-VALIDATED. `model_copy(update=...)` skips validation, so a single
+    # request like {"editable_notes": {"x": 1}} used to persist a corrupt
+    # profile and permanently break every chat/evaluation route that reads it.
+    editable = {"editable_notes", "edited_by_user"}
+    data = {k: v for k, v in payload.items() if k in editable and k in StyleProfile.model_fields}
     if not data:
-        raise EchoTwinError(f"Only {sorted(allowed)} are editable.")
-    profile = profile.model_copy(update={**data, "edited_by_user": True})
-    path.write_text(profile.model_dump_json(indent=2), encoding="utf-8")
+        raise EchoTwinError(
+            f"Only {sorted(editable)} are editable in this version "
+            f"(model fields: {sorted(StyleProfile.model_fields)})."
+        )
+    merged = profile.model_dump()
+    merged.update(data)
+    merged["edited_by_user"] = True
+    try:
+        updated = StyleProfile.model_validate(merged)
+    except ValidationError as exc:
+        raise EchoTwinError(f"Invalid profile update: {exc}") from exc
+    path.write_text(updated.model_dump_json(indent=2), encoding="utf-8")
     return {"edited": True, "fields": sorted(data)}
 
 

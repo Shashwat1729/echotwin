@@ -14,19 +14,13 @@ retrieval would leak the exact answer.
 from __future__ import annotations
 
 import math
-import re
 from collections import Counter
 from dataclasses import dataclass, field
 
 from pydantic import BaseModel, Field
 
 from ..ingestion.schema import Message
-
-_TOKEN_RE = re.compile(r"[a-z\u0900-\u097F']+")
-
-
-def tokenize(text: str) -> list[str]:
-    return _TOKEN_RE.findall((text or "").lower())
+from ..tokenization import tokenize_words as tokenize
 
 
 @dataclass
@@ -169,12 +163,22 @@ def retrieve_exemplars(
     """Return few-shot exemplars [{'context','response'}] for a prompt.
 
     Never fabricates: returns [] when nothing scores above threshold.
+
+    Leakage control: when ``exclude_current_conversation`` is on (the default)
+    and no ``conversation_id`` is supplied there is no way to know which
+    conversation is under evaluation, so retrieval returns nothing rather than
+    risking the evaluated answer being served back as its own exemplar. Silently
+    degrading to "no exclusion" inflated held-out scores in practice.
     """
     cfg = cfg or RetrievalConfig()
     if cfg.k == 0 or not prompt_messages:
         return []
+    exclude: set[str] = set()
+    if cfg.exclude_current_conversation:
+        if not conversation_id:
+            return []
+        exclude = {conversation_id}
     query = " ".join(m.get("content", "") for m in prompt_messages)
-    exclude = {conversation_id} if (conversation_id and cfg.exclude_current_conversation) else set()
     hits = index.search(query, k=cfg.k, exclude_conversation_ids=exclude)
     out: list[dict] = []
     for ex, score in hits:

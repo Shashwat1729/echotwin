@@ -261,8 +261,20 @@ def generate_plan(
 
     # 6. Final recommendation: test if minimum met, else record essentials first.
     mandatory_tasks = [t for t in tasks if t.mandatory]
-    backend_minimum_met = not mandatory_tasks and all(
-        _count_ok(inventory, lang) for lang in planned_langs if lang != "hinglish"
+    # The minimum is only met when there is at least one planned language AND
+    # every one of them has a qualifying recording. `all([])` is True, so a
+    # backend that supports none of the requested languages used to report
+    # "minimum met — go test the voice" for a user with zero recordings.
+    _gate_langs = [lang for lang in planned_langs if lang != "hinglish"]
+    backend_minimum_met = (
+        bool(_gate_langs)
+        and not mandatory_tasks
+        and all(
+            any(
+                i.duration_seconds >= caps.min_reference_seconds for i in _count_ok(inventory, lang)
+            )
+            for lang in _gate_langs
+        )
     )
     recommendations: list[str] = []
     if backend_minimum_met:
@@ -304,8 +316,14 @@ def generate_plan(
         tasks=sorted(tasks, key=lambda t: (t.priority, t.id)),
         skipped=skipped,
         total_estimated_seconds=round(sum(t.est_seconds for t in tasks), 1),
+        # Mandatory tasks are exempt from the budget, so the raw sum could
+        # exceed the budget itself. Report the budgeted time, not more.
         within_time_budget_seconds=round(
-            sum(t.est_seconds for t in tasks if not t.beyond_time_budget), 1
+            min(
+                sum(t.est_seconds for t in tasks if not t.beyond_time_budget),
+                budget_seconds,
+            ),
+            1,
         ),
         backend_minimum_met=backend_minimum_met,
         recommendations=recommendations

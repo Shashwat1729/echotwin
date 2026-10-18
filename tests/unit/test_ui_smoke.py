@@ -118,5 +118,7 @@ def test_package_version_matches_pyproject():
     import echotwin
 
     root = Path(__file__).resolve().parents[2]
-    declared = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+    declared = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"][
+        "version"
+    ]
     assert echotwin.__version__ == declared

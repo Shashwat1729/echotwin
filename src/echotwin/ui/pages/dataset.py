@@ -31,10 +31,17 @@ def do_prepare(context_messages: float, test_fraction: float):
         )
         manifest = datasets.manifest()
     except Exception as exc:
-        return components.empty_state("No dataset", "Fix the problem below."), warn(exc), {}, rail_value()
+        return (
+            components.empty_state("No dataset", "Fix the problem below."),
+            warn(exc),
+            {},
+            rail_value(),
+        )
     notes = list(result.warnings)
     if result.n_test == 0:
-        notes.append("The held-out test split is empty, so evaluation cannot run. Import more chats.")
+        notes.append(
+            "The held-out test split is empty, so evaluation cannot run. Import more chats."
+        )
     warnings_html = "".join(render.callout("warn", n) for n in notes)
     return _cards(result), warnings_html, manifest, rail_value()
 
@@ -48,7 +55,9 @@ def build(ctx: PageContext) -> None:
         context = gr.Slider(1, 12, value=4, step=1, label="Context messages")
         test_fraction = gr.Slider(0.05, 0.4, value=0.1, step=0.05, label="Held-out fraction")
     build_btn = gr.Button("Build dataset", variant="primary")
-    cards = gr.HTML(components.empty_state("No dataset yet", "Build one to see its size and splits."))
+    cards = gr.HTML(
+        components.empty_state("No dataset yet", "Build one to see its size and splits.")
+    )
     warnings = gr.HTML()
     with gr.Accordion("Manifest", open=False):
         manifest = gr.JSON()

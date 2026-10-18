@@ -17,7 +17,9 @@ def mock_allowed(env: Mapping[str, str] | None = None) -> bool:
 
 class MockEngine(BaseEngine):
     kind = "mock"
-    capabilities = EngineCapabilities(uses_prompt_context=False, supports_seed=True, needs_network=False)
+    capabilities = EngineCapabilities(
+        uses_prompt_context=False, supports_seed=True, needs_network=False
+    )
 
     def __init__(self, exemplars: list[str] | None = None, seed: int = 0) -> None:
         if not mock_allowed():

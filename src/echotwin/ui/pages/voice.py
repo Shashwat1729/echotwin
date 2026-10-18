@@ -76,7 +76,12 @@ def save_rec(audio: str | None, language: str, script_id: str):
     try:
         result = voice_service.save_recording(audio, language, script_id or "")
     except Exception as exc:
-        return components.status_badge("error", "Not saved"), recordings_df(), warn(exc), rail_value()
+        return (
+            components.status_badge("error", "Not saved"),
+            recordings_df(),
+            warn(exc),
+            rail_value(),
+        )
     badge = components.status_badge(_VERDICT_STATE.get(result.verdict, "info"), result.summary)
     return badge, recordings_df(), "", rail_value()
 
@@ -88,7 +93,9 @@ def do_analyze():
         return recordings_df(), warn(exc)
     bad = [r for r in reports if r["verdict"] == "fail"]
     kind = "warn" if bad else "ok"
-    return recordings_df(), render.callout(kind, f"Analyzed {len(reports)} recording(s); {len(bad)} failed.")
+    return recordings_df(), render.callout(
+        kind, f"Analyzed {len(reports)} recording(s); {len(bad)} failed."
+    )
 
 
 def set_transcript(recording_id: str, text: str) -> str:

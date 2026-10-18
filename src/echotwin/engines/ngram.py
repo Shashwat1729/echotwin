@@ -12,7 +12,9 @@ class NGramEngine(BaseEngine):
     kind = "ngram"
     # Only the last user message seeds generation; system text, few-shot pairs and
     # retrieved exemplars are ignored, so prompt-building methods change nothing.
-    capabilities = EngineCapabilities(uses_prompt_context=False, supports_seed=True, needs_network=False)
+    capabilities = EngineCapabilities(
+        uses_prompt_context=False, supports_seed=True, needs_network=False
+    )
 
     def __init__(self, model: NGramModel, name: str | None = None) -> None:
         self.model = model
@@ -43,7 +45,9 @@ class NGramEngine(BaseEngine):
         texts = [
             ex.messages[-1].content
             for ex in (load_jsonl(train) if train.exists() else [])
-            if ex.messages and ex.messages[-1].role == "assistant" and ex.messages[-1].content.strip()
+            if ex.messages
+            and ex.messages[-1].role == "assistant"
+            and ex.messages[-1].content.strip()
         ]
         if not texts:
             raise ValueError(f"dataset {dataset_id} has no train examples")

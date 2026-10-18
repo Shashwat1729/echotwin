@@ -1,0 +1,47 @@
+{
+  "evaluator": "speechbrain/spkrec-ecapa-voxceleb",
+  "groups": {
+    "same_speaker_fleurs_g0": {
+      "n": 3,
+      "mean": 0.0652,
+      "min": -0.0256,
+      "max": 0.1374
+    },
+    "same_speaker_fleurs_g1": {
+      "n": 3,
+      "mean": 0.1518,
+      "min": 0.0585,
+      "max": 0.2776
+    },
+    "different_speaker_fleurs": {
+      "n": 9,
+      "mean": 0.1044,
+      "min": -0.0085,
+      "max": 0.3003
+    },
+    "same_speaker_shruti": {
+      "n": 6,
+      "mean": 0.6095,
+      "min": 0.539,
+      "max": 0.6856
+    },
+    "same_speaker_ll_words": {
+      "n": 6,
+      "mean": 0.2433,
+      "min": 0.0663,
+      "max": 0.3356
+    },
+    "different_corpus_shruti_vs_fleurs": {
+      "n": 4,
+      "mean": -0.0687,
+      "min": -0.1501,
+      "max": 0.0187
+    }
+  },
+  "separation": {
+    "same_speaker_mean": 0.1085,
+    "different_speaker_mean": 0.1044,
+    "gap": 0.0041,
+    "fully_separated": false
+  }
+}

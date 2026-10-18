@@ -67,15 +67,28 @@ def _profile_dir() -> Path:
     return d
 
 
+def _profile_path(profile_id: str) -> Path:
+    """Resolve a profile id to a file inside the profile directory.
+
+    The id reaches this module straight from a URL, so it is untrusted input:
+    without a sandbox check ``..\\..\\victim`` (URL-decoded backslashes survive
+    routing) would resolve outside the profile directory and let a DELETE
+    remove an arbitrary ``.json`` file on the host.
+    """
+    from ..storage.paths import ensure_within
+
+    return ensure_within(_profile_dir(), f"{profile_id}.json")
+
+
 def save_profile(profile: VoiceProfile) -> Path:
-    path = _profile_dir() / f"{profile.profile_id}.json"
+    path = _profile_path(profile.profile_id)
     profile.touch()
     path.write_text(profile.model_dump_json(indent=2), encoding="utf-8")
     return path
 
 
 def load_profile(profile_id: str) -> VoiceProfile:
-    path = _profile_dir() / f"{profile_id}.json"
+    path = _profile_path(profile_id)
     if not path.exists():
         from ..exceptions import ArtifactNotFoundError
 
@@ -83,14 +96,26 @@ def load_profile(profile_id: str) -> VoiceProfile:
     return VoiceProfile.model_validate_json(path.read_text(encoding="utf-8"))
 
 
-def list_profiles() -> list[VoiceProfile]:
-    out = []
+def list_profiles() -> tuple[list[VoiceProfile], list[dict]]:
+    """Return (profiles, corrupt).
+
+    A profile that fails validation is surfaced instead of being silently
+    dropped: swallowing the error made a corrupt profile indistinguishable from
+    one that does not exist, so its recordings looked deleted.
+    """
+    out: list[VoiceProfile] = []
+    corrupt: list[dict] = []
     for p in sorted(_profile_dir().glob("voice-*.json")):
         try:
             out.append(VoiceProfile.model_validate_json(p.read_text(encoding="utf-8")))
-        except Exception:
-            continue
-    return out
+        except Exception as exc:  # reported to the caller, never silently dropped
+            corrupt.append(
+                {
+                    "path": str(p),
+                    "error": f"{type(exc).__name__}: {exc}"[:200],
+                }
+            )
+    return out, corrupt
 
 
 def delete_profile(
@@ -109,6 +134,21 @@ def delete_profile(
         if p.exists():
             p.unlink()
             removed.append(str(p))
+    if delete_audio_artifacts:
+        # Every synthesis writes `tts_<profile_id>_<ts>.wav` (plus its
+        # provenance sidecar) into artifacts/audio. Leaving those behind meant
+        # "delete my voice profile" still left the cloned voice recoverable on
+        # disk, with a self-identifying provenance record.
+        from ..settings import get_settings
+
+        audio_dir = get_settings().artifacts_dir / "audio"
+        if audio_dir.exists():
+            for candidate in audio_dir.glob(f"tts_{profile_id}*"):
+                try:
+                    candidate.unlink()
+                    removed.append(str(candidate))
+                except OSError:
+                    pass
     if delete_recordings:
         for rec in profile.recordings:
             p = Path(rec.path)
@@ -118,7 +158,7 @@ def delete_profile(
                     removed.append(str(p))
                 except OSError:
                     pass
-    (_profile_dir() / f"{profile_id}.json").unlink(missing_ok=True)
+    _profile_path(profile_id).unlink(missing_ok=True)
     return {
         "profile_id": profile_id,
         "files_removed": removed,

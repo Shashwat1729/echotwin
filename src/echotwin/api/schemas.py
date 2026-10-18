@@ -43,7 +43,6 @@ class GenerateRequest(BaseModel):
     context: list[dict] = Field(description="chat turns [{'role','content'}]")
     engine: str = Field(default="", description="engine id; empty uses model or the n-gram engine")
     model: str = Field(default="", description="model spec name; same as engine 'hf:<model>'")
-    style_profile_path: str | None = None
     method: str = "style_fewshot"
     max_new_tokens: int = 128
     seed: int | None = None

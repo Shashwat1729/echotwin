@@ -125,7 +125,9 @@ def build(ctx: PageContext) -> None:
         max_prompts = gr.Slider(5, 200, value=50, step=5, label="Max prompts")
     run_btn = gr.Button("Run evaluation", variant="primary")
     status = gr.HTML()
-    cards = gr.HTML(components.empty_state("No results yet", "Run an evaluation to compare styles."))
+    cards = gr.HTML(
+        components.empty_state("No results yet", "Run an evaluation to compare styles.")
+    )
     metrics = gr.Dataframe(_EMPTY_METRICS, interactive=False, label="Style metrics")
     examples = gr.Dataframe(_EMPTY_EXAMPLES, interactive=False, wrap=True, label="Examples")
     marker = gr.State("")

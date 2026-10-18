@@ -33,7 +33,9 @@ def evaluate_baseline(
     model: str = typer.Option(
         "", help="registry name or org/model id (empty = deterministic offline generator)"
     ),
-    ngram: bool = typer.Option(False, "--ngram", help="use the n-gram generator (pair with --method plain)"),
+    ngram: bool = typer.Option(
+        False, "--ngram", help="use the n-gram generator (pair with --method plain)"
+    ),
     max_prompts: int = typer.Option(50),
     few_shot: int = typer.Option(5),
     rag_k: int = typer.Option(3, help="retrieved exemplars for style_rag methods"),

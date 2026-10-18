@@ -54,9 +54,10 @@ def _score(c: ReferenceCandidate, caps: VoiceBackendCapabilities, transcript_mod
     band_lo, band_hi = caps.min_reference_seconds, (caps.recommended_reference_seconds * 2)
     if band_lo <= c.duration_seconds <= band_hi:
         score += 3.0
-    if c.quality_verdict == "ok":
+    verdict = (c.quality_verdict or "").strip().lower()
+    if verdict == "ok":
         score += 3.0
-    elif c.quality_verdict == "warning":
+    elif verdict == "warning":
         score += 1.0
     else:
         score -= 10.0
@@ -74,6 +75,19 @@ def _score(c: ReferenceCandidate, caps: VoiceBackendCapabilities, transcript_mod
     return score
 
 
+def _disqualify(c: ReferenceCandidate, caps: VoiceBackendCapabilities) -> str | None:
+    """Single disqualification reason for a candidate, or None if usable."""
+    # Allowlist, not a "fail" comparison: a producer that normalises the case
+    # ("FAIL") used to slip a failed clip past the check and get SELECTED.
+    if (c.quality_verdict or "").strip().lower() not in {"ok", "warning"}:
+        return "quality_failed"
+    if caps.max_reference_seconds and c.duration_seconds > caps.max_reference_seconds:
+        return "duration_too_long"
+    if c.duration_seconds < max(0.5, caps.min_reference_seconds * 0.5):
+        return "duration_too_short"
+    return None
+
+
 def select_references(
     candidates: list[ReferenceCandidate],
     capabilities: VoiceBackendCapabilities | dict,
@@ -85,15 +99,16 @@ def select_references(
         if isinstance(capabilities, VoiceBackendCapabilities)
         else VoiceBackendCapabilities(**capabilities)
     )
-    language_field_present = [c for c in candidates if c.quality_verdict in {"ok", "warning"}]
     rejected: list[dict] = []
+    eligible: list[ReferenceCandidate] = []
     for c in candidates:
-        if c.quality_verdict == "fail":
-            rejected.append({"recording_id": c.recording_id, "reason": "quality_failed"})
-        if caps.max_reference_seconds and c.duration_seconds > caps.max_reference_seconds:
-            rejected.append({"recording_id": c.recording_id, "reason": "duration_too_long"})
-        elif c.duration_seconds < max(0.5, caps.min_reference_seconds * 0.5):
-            rejected.append({"recording_id": c.recording_id, "reason": "duration_too_short"})
+        reason = _disqualify(c, caps)
+        if reason is None:
+            eligible.append(c)
+            continue
+        # One entry per candidate: a clip that both fails quality and has a bad
+        # duration used to appear twice, over-counting the rejection list.
+        rejected.append({"recording_id": c.recording_id, "reason": reason})
 
     languages = sorted({c.language for c in candidates if c.language and c.language != "-"})
     selected: list[ReferenceCandidate] = []
@@ -102,15 +117,9 @@ def select_references(
     transcript_mode = prefer_transcript and caps.reference_transcript_optional
     per_language_best: list[ReferenceCandidate] = []
     for lang in languages:
-        pool = [
-            c
-            for c in language_field_present
-            if c.language == lang
-            and not any(
-                r["recording_id"] == c.recording_id and r["reason"] == "quality_failed"
-                for r in rejected
-            )
-        ]
+        # Built from the positive eligible set, not by filtering the rejection
+        # list: a duration rejection previously left the clip selectable.
+        pool = [c for c in eligible if c.language == lang]
         if not pool:
             continue
         ranked = sorted(pool, key=lambda c: _score(c, caps, transcript_mode), reverse=True)
@@ -118,16 +127,20 @@ def select_references(
         alternates.extend(ranked[1:3])
 
     if per_language_best:
+        # `per_language` ALWAYS maps the best clip per language, even for a
+        # single-reference backend. Otherwise the non-selected language's clip
+        # appeared nowhere at all (not selected, not an alternate), and the
+        # language-aware reference pick in synthesis.py was dead code on the
+        # default backend.
+        per_language = {c.language: c.recording_id for c in per_language_best}
         if caps.supports_multiple_references:
             selected = per_language_best
-            per_language = {c.language: c.recording_id for c in selected}
         else:
-            # Single-reference backend: keep only the globally best clip and say so.
+            # Single-reference backend: only ONE clip is actually used.
             best = sorted(
                 per_language_best, key=lambda c: _score(c, caps, transcript_mode), reverse=True
             )[0]
             selected = [best]
-            per_language = {best.language: best.recording_id}
     rationale = (
         "Selected by quality, duration fit, transcript match (when requested) and "
         "phonetic breadth. Source recordings are never modified or concatenated."

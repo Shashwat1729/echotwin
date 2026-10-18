@@ -94,8 +94,14 @@ class TestParsing:
 
         res = WhatsAppParser().parse_text(truncated_export, "c")
         assert len(res.messages) == 1
-        assert res.report.malformed_lines == 1
+        # Two broken lines: the truncated header itself, and the garbage line
+        # that can no longer be attached to any message.
+        assert res.report.malformed_lines == 2
+        assert res.report.orphan_lines == 1
         assert any(e.reason == "truncated_or_orphan_header" for e in res.errors)
+        # Garbage after a broken header must NOT be absorbed into the previous
+        # participant's message.
+        assert "\n" not in res.messages[0].text
 
     def test_empty_export_raises(self):
 

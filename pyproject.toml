@@ -38,6 +38,14 @@ voice = [
     "soundfile>=0.12.1",
     "scipy>=1.11",
 ]
+# Independent speaker-similarity evaluation for cloned audio.
+# speechbrain/spkrec-ecapa-voxceleb is the only evaluator we measured to
+# separate speakers reliably (see docs/voice-cloning.md).
+voice-eval = [
+    "speechbrain>=1.1",
+    "torch>=2.2",
+    "torchaudio>=2.1",
+]
 # Heavy language-model stack (SFT/LoRA/QLoRA/DPO).
 train = [
     "torch>=2.2",

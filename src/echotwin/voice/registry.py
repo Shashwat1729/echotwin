@@ -33,6 +33,13 @@ def get_backend(name: str, *, config: dict | None = None) -> AbstractVoiceBacken
     except ImportError as e:  # pragma: no cover - defensive
         raise BackendNotAvailableError(f"Cannot import backend module {module_path}: {e}") from e
     backend_cls = getattr(module, class_name)
+    if key in _cache:
+        # Reuse the loaded instance: a fresh one re-read the multi-GB model
+        # checkpoint on EVERY synthesis.
+        instance = _cache[key]
+        if config:
+            instance.load(config)
+        return instance
     instance = backend_cls()
     if config:
         instance.load(config)

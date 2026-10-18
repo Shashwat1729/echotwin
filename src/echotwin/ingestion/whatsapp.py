@@ -116,26 +116,43 @@ def parse_timestamp(date_tok: str, time_tok: str, *, dayfirst: bool = True) -> d
 # ---------------------------------------------------------------------------
 # System messages / attachments / edited / deleted
 # ---------------------------------------------------------------------------
+# WhatsApp prints system notices with an optional actor prefix:
+#   "Rohit created group "X"" / "+91 98765 43210 turned on disappearing messages"
+# So a notice word may follow an actor. `_ACTOR` matches a phone-number handle or
+# a short capitalized name.
+_ACTOR = r"(?:\+?[\d][\d\s().-]{5,}|[\w][\w .'-]{0,40}?)\s+"
 _SYSTEM_PATTERNS = [
     r"messages?( and calls)? (are|is) end-to-end encrypted",
-    r"created (this )?group",
-    r"added you",
-    r"added\s+.+\s+to the group",
-    r"removed\s+.+",
-    r"left$",
-    r"changed (the|their|this group'?s?) .*",
-    r"turned (on|off) .*",
-    r"joined using (this group'?s? )?invite link",
-    r"security code (with .+ )?changed",
+    rf"{_ACTOR}created (this )?group",
+    # "Rohit added Priya and Sana", "X added you", "Y added A to the group".
+    # The negative lookahead stops user text like "I added you to my contact
+    # list" from being read as a notice even when no sender was attributed.
+    rf"{_ACTOR}added(?!\s+to\s+(?:my|the|your|his|her)\b).*",
+    rf"{_ACTOR}removed\s+\S+",
+    rf"{_ACTOR}left\b",
+    rf"{_ACTOR}changed (the|their|this group'?s?) .*",
+    rf"{_ACTOR}turned (on|off) .*",
+    rf"{_ACTOR}joined using (this group'?s? )?invite link",
+    rf"{_ACTOR}security code (with .+ )?changed",
     r"this message was deleted",
     r"you deleted this message",
     r"missed (voice|video) call",
     r"started a call",
-    r"pinned a message",
-    r"changed (your|the) phone number",
+    rf"{_ACTOR}pinned a message",
+    rf"{_ACTOR}changed (your|the) phone number",
     r"this chat is with a (business|official) account",
 ]
-_SYSTEM_RE = re.compile("|".join(_SYSTEM_PATTERNS), re.IGNORECASE)
+# Anchored: a notice must START the line (optionally after an actor). The previous
+# unanchored search swallowed real user text like "I removed the old files from
+# my phone", silently deleting it from the training set.
+_SYSTEM_RE = re.compile("|".join(f"(?:{p})" for p in _SYSTEM_PATTERNS), re.IGNORECASE)
+# A prefix that is only digits/phone punctuation is an account handle, never a
+# human participant name.
+_PHONE_ACTOR_RE = re.compile(r"^\+?[\d\s().-]{6,}$")
+# Some export tools (and older Android builds) print a literal "System" sender
+# on notice lines. No human participant is named exactly "System", so this is a
+# safe actor rather than a reason to reclassify a person's message.
+_SYSTEM_ACTOR_NAMES = {"system", "whatsapp", "chat"}
 
 _DELETED_RE = re.compile(r"^(this message was deleted|you deleted this message)", re.IGNORECASE)
 _CALL_RE = re.compile(r"^(missed (voice|video) call|started a call)", re.IGNORECASE)
@@ -206,6 +223,27 @@ def _strip_bidi(text: str) -> str:
 def _stable_id(conversation_id: str, line_number: str | int, sender: str | None, text: str) -> str:
     raw = f"{conversation_id}|{line_number}|{sender}|{text[:80]}"
     return hashlib.sha1(raw.encode("utf-8", errors="replace")).hexdigest()[:16]
+
+
+def _is_system_notice(body: str, sender_name: str | None) -> bool:
+    """True only for genuine WhatsApp system notices.
+
+    Rules, in order:
+
+    1. The anchored system pattern must match at the START of the text, because
+       a real participant may write "I removed the old files from my phone".
+    2. If the line was attributed to a human sender (``Alice: ...``), it is user
+       text and can never be a system notice.
+    3. If WhatsApp printed a phone-number account handle as the actor
+       (``+91 98765 43210 turned on disappearing messages``), it IS a notice.
+    """
+    if not _SYSTEM_RE.match(body):
+        return False
+    if sender_name is None:
+        return True
+    if sender_name.strip().lower() in _SYSTEM_ACTOR_NAMES:
+        return True
+    return bool(_PHONE_ACTOR_RE.match(sender_name))
 
 
 def _detect_attachment(text: str) -> AttachmentInfo | None:
@@ -291,8 +329,11 @@ class WhatsAppParser:
                     if acc.last is None:
                         report.orphan_lines += 1
                     report.malformed_lines += 1
-                    # Truncated headers interrupt the current message; the previous
-                    # message is still flushed normally below.
+                    # A broken header interrupts the message in progress. Flush it
+                    # and clear the buffer, otherwise the next continuation line
+                    # would be appended to the *previous* sender's message.
+                    self._flush(acc, messages, report)
+                    acc = _Acc()
 
         self._flush(acc, messages, report)
         self._postprocess(messages, report)
@@ -360,7 +401,6 @@ class WhatsAppParser:
 
         deleted = _DELETED_RE.match(body)
         call = _CALL_RE.match(body)
-        system_phrase = _SYSTEM_RE.search(rest)
 
         # Classification precedence: deleted > call > attachment > system > text.
         msg_type = MessageType.TEXT
@@ -380,13 +420,11 @@ class WhatsAppParser:
                 msg_type = MessageType.ATTACHMENT
                 flags.append(QualityFlag.ATTACHMENT_PLACEHOLDER)
                 report.attachment_messages += 1
-            elif system_phrase and (
-                sender_name is None or system_phrase.start() > len(sender_name)
-            ):
+            elif _is_system_notice(body, sender_name):
                 # System/event notice ("Messages … end-to-end encrypted",
-                # "created group", "added …"). When a colon split occurred but the
-                # body itself is the event text, the "sender" is the chat/group
-                # name, so attribution is dropped.
+                # "created group", "added …"). A message that carries a real
+                # human sender is NEVER reclassified as a system event: real
+                # users write "I removed the old files" all the time.
                 is_system = True
                 msg_type = MessageType.SYSTEM
                 flags.append(QualityFlag.SYSTEM_MESSAGE)
@@ -400,9 +438,12 @@ class WhatsAppParser:
         if not body.strip():
             flags.append(QualityFlag.EMPTY_TEXT)
 
-        if "bracketed" not in report.detected_formats and line.lstrip().startswith("["):
+        # Format detection: each property is independent. The previous elif made every
+        # bracketed line after the first also report "unbracketed".
+        _bracketed = line.lstrip().startswith("[")
+        if _bracketed and "bracketed" not in report.detected_formats:
             report.detected_formats.append("bracketed")
-        elif "unbracketed" not in report.detected_formats:
+        elif not _bracketed and "unbracketed" not in report.detected_formats:
             report.detected_formats.append("unbracketed")
         if re.search(r"[AaPp]\.?\s*[Mm]\.?", time_tok):
             if "12h" not in report.detected_formats:

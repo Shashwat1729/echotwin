@@ -67,7 +67,9 @@ def build(ctx: PageContext) -> None:
     next_step = gr.HTML(next_step_html())
     with gr.Row():
         sample_btn = gr.Button("Load sample data", variant="primary")
-        gr.Markdown("A synthetic multi-chat export, so you can try every step without private data.")
+        gr.Markdown(
+            "A synthetic multi-chat export, so you can try every step without private data."
+        )
     status = gr.HTML()
     gr.Markdown("### Engines")
     engines = gr.Dataframe(engines_df(), interactive=False, wrap=True)

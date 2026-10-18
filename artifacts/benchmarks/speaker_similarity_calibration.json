@@ -1,0 +1,24 @@
+{
+  "evaluator": "microsoft/wavlm-base-plus-sv",
+  "cases": {
+    "same_speaker": {
+      "raw": 0.7884,
+      "baseline": 0.7689,
+      "calibrated": 1.0254,
+      "note": "Cosine 0.7884 vs 2 reference(s); same-speaker baseline 0.7689 over 1 reference pair(s); calibrated score 1.0254 (1.0 = as close to the speaker as the speaker is to themselves)."
+    },
+    "different_speaker": {
+      "raw": 0.7859,
+      "baseline": 0.7689,
+      "calibrated": 1.0221,
+      "note": "Cosine 0.7859 vs 2 reference(s); same-speaker baseline 0.7689 over 1 reference pair(s); calibrated score 1.0221 (1.0 = as close to the speaker as the speaker is to themselves)."
+    },
+    "same_speaker_long_read": {
+      "raw": 0.9679,
+      "baseline": 0.9776,
+      "calibrated": 0.9901,
+      "note": "Cosine 0.9679 vs 3 reference(s); same-speaker baseline 0.9776 over 3 reference pair(s); calibrated score 0.9901 (1.0 = as close to the speaker as the speaker is to themselves)."
+    }
+  },
+  "calibration_separates": true
+}

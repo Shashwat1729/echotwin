@@ -1,14 +1,36 @@
+# Normalize text to LF in the repository AND in the working tree.
+# Mixed CRLF/LF line endings break deterministic formatting tools
+# (ruff format crashed on a mixed-ending file during development), so the
+# whole tree is pinned to LF.
+* text=auto eol=lf
+
 *.py text eol=lf
 *.yaml text eol=lf
 *.yml text eol=lf
 *.toml text eol=lf
 *.md text eol=lf
 *.jsonl text eol=lf
+*.json text eol=lf
 *.txt text eol=lf
+*.cfg text eol=lf
+*.gitignore text eol=lf
+*.gitattributes text eol=lf
+*.sh text eol=lf
+
+# Binary assets
 *.wav binary
 *.mp3 binary
 *.flac binary
 *.ogg binary
+*.m4a binary
+*.webm binary
 *.safetensors binary
 *.bin binary
 *.pt binary
+*.parquet binary
+*.png binary
+*.jpg binary
+*.zip binary
+
+# Not text
+artifacts/**/model* binary

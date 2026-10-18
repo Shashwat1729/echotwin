@@ -32,10 +32,15 @@ DEVA_VOICED = set("गघजझडढदधबभ")
 DEVA_NASALS = set("ङञणनम")
 DEVA_FRICATIVES = set("शषसह")
 DEVA_SEMIVOWELS = set("यरलव")
+# Devanagari vowel classes. The short/long distinction was previously wrong:
+# ए (e) and ओ (o) appeared in BOTH sets, the short matras े/ो were missing
+# entirely, and े/ो were listed as LONG. A recording containing only short
+# vowels was therefore reported as "long vowels covered, short vowels missing" —
+# an inverted gap that drove every coverage-driven recording plan.
 DEVA_SHORT_VOWELS = set("अइउएओ")
-DEVA_LONG_VOWELS = set("आईऊएऐओ")
-DEVA_LONG_MATRAS = set("ीूेैोौाृ")
-DEVA_SHORT_MATRAS = set("िु")
+DEVA_LONG_VOWELS = set("आईऊऐऔ")
+DEVA_SHORT_MATRAS = set("िुेो")
+DEVA_LONG_MATRAS = set("ाीूैौृ")
 DEVA_NASALIZATION = set("ंँ")
 DEVA_HALANT = "्"
 
@@ -133,12 +138,14 @@ def _analyze_english(text: str, acc: Counter) -> None:
         joined = "".join(letters)
         if any(d in joined for d in EN_AFFRICATE_DIGRAPHS):
             acc["en_fricatives"] += 1
-        # consonant clusters: 2+ adjacent non-vowel letters
+        # Consonant clusters: 2+ adjacent non-vowel letters. Count each RUN
+        # once, not once per letter — counting per letter made "strengths"
+        # report 6 clusters instead of 2.
         run = 0
         for c in letters:
             if c not in EN_VOWEL_LETTERS:
                 run += 1
-                if run >= 2:
+                if run == 2:
                     acc["en_clusters"] += 1
             else:
                 run = 0
@@ -315,6 +322,37 @@ def _analyze_romanized(words: list[str], acc: Counter) -> None:
                 run = 0
 
 
+def coverage_texts_for_recordings(recordings) -> list[str]:
+    """The text that should be analysed for coverage, per recording.
+
+    Recordings are ingested WITHOUT a transcript, so analysing
+    ``recording.transcript or ""`` analysed the empty string: the coverage
+    report always showed every category missing, and the "close your phonetic
+    gaps" task then handed back the first few generic scripts in library order
+    regardless of what the user had actually recorded.
+
+    The recording knows which script it was made from, and that script IS the
+    text the user was asked to speak — so it is the correct analysis input. The
+    verified transcript is used when there is no script id.
+    """
+    from .script_library import get_script
+
+    out: list[str] = []
+    for rec in recordings:
+        text = ""
+        script_id = getattr(rec, "script_id", None)
+        if script_id:
+            try:
+                text = get_script(script_id).text
+            except KeyError:
+                text = ""
+        if not text:
+            text = getattr(rec, "transcript", None) or ""
+        if text.strip():
+            out.append(text)
+    return out
+
+
 def analyze_texts(
     texts: list[str],
     *,
@@ -333,8 +371,15 @@ def analyze_texts(
         if has_deva:
             lang_acc["hi"] = lang_acc.get("hi", 0) + 1
         else:
-            # crude script-level guess; fine-grained language needs the language module
-            lang_acc["latin"] = lang_acc.get("latin", 0) + 1
+            # Report a LANGUAGE, not a script: the field is documented as
+            # `languages_present`, and consumers filtering on "en" previously
+            # saw an empty set because the value was the script name "latin".
+            # Latin text that carries Romanized-Hindi markers is reported as
+            # "hi-Latn" (Hinglish) so it is not confused with plain English.
+            if _romanized_hindi_words(text):
+                lang_acc["hi-Latn"] = lang_acc.get("hi-Latn", 0) + 1
+            else:
+                lang_acc["en"] = lang_acc.get("en", 0) + 1
         _analyze_devanagari(text, acc)
         _analyze_english(text, acc)
         if not has_deva:

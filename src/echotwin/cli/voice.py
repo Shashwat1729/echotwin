@@ -170,7 +170,7 @@ def voice_import(
     from ..voice.audio_ingestion import read_audio
     from ..voice.metadata import RecordingEntry, VoiceProfile, load_profile
     from ..voice.metadata import save_profile as save_voice_profile
-    from ..voice.phoneme_coverage import analyze_texts
+    from ..voice.phoneme_coverage import analyze_texts, coverage_texts_for_recordings
 
     if not folder.exists():
         _fail(f"Folder does not exist: {folder}")
@@ -207,7 +207,9 @@ def voice_import(
                 category="imported",
             )
         )
-    prof.coverage_report = analyze_texts([r.transcript or "" for r in prof.recordings]).model_dump()
+    prof.coverage_report = analyze_texts(
+        coverage_texts_for_recordings(prof.recordings)
+    ).model_dump()
     out = save_voice_profile(prof)
     state.set("last_voice_profile_id", prof.profile_id)
     console.print(
@@ -232,7 +234,7 @@ def voice_analyze(profile: str = typer.Option(None)) -> None:
     from ..voice.audio_quality import analyze_audio_file, summary_line
     from ..voice.metadata import load_profile
     from ..voice.metadata import save_profile as save_voice_profile
-    from ..voice.phoneme_coverage import analyze_texts
+    from ..voice.phoneme_coverage import analyze_texts, coverage_texts_for_recordings
 
     pid = profile or state.get("last_voice_profile_id")
     if not pid:
@@ -244,7 +246,9 @@ def voice_analyze(profile: str = typer.Option(None)) -> None:
             rec.quality_verdict = rep.verdict
             rec.quality_report = rep.model_dump()
             console.print(f"{rec.recording_id}: {rep.verdict} ({summary_line(rep)})")
-    prof.coverage_report = analyze_texts([r.transcript or "" for r in prof.recordings]).model_dump()
+    prof.coverage_report = analyze_texts(
+        coverage_texts_for_recordings(prof.recordings)
+    ).model_dump()
     save_voice_profile(prof)
     console.print("[green]Analysis complete[/green]")
 

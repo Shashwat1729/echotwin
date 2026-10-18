@@ -12,7 +12,9 @@ from .base import BaseEngine, EngineCapabilities
 
 class LocalHFEngine(BaseEngine):
     kind = "local_hf"
-    capabilities = EngineCapabilities(uses_prompt_context=True, supports_seed=True, needs_network=False)
+    capabilities = EngineCapabilities(
+        uses_prompt_context=True, supports_seed=True, needs_network=False
+    )
 
     def __init__(self, spec_name: str, loader: Callable | None = None) -> None:
         self.spec = get_model_spec(spec_name)

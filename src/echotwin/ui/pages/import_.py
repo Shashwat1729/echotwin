@@ -20,7 +20,12 @@ def _author_choices() -> list[str]:
 
 def do_import(file: str | None):
     if not file:
-        return render.callout("warn", "Choose an export file first."), None, gr.Dropdown(), rail_value()
+        return (
+            render.callout("warn", "Choose an export file first."),
+            None,
+            gr.Dropdown(),
+            rail_value(),
+        )
     try:
         result = imports.import_export(file)
     except Exception as exc:

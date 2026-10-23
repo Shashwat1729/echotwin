@@ -5,6 +5,7 @@ from __future__ import annotations
 import gradio as gr
 import pandas as pd
 
+from ...exceptions import EchoTwinError
 from ...services import jobs
 from ...services import voice as voice_service
 from ...voice import script_library
@@ -41,7 +42,18 @@ def recordings_df() -> pd.DataFrame:
 
 
 def plan_view(backend: str, languages: list[str], minutes: float) -> pd.DataFrame:
-    plan = voice_service.plan(backend, languages or LANGUAGES, minutes)
+    try:
+        plan = voice_service.plan(backend, languages or LANGUAGES, minutes)
+    except EchoTwinError as exc:
+        return pd.DataFrame(
+            [{"Task": f"Cannot build a plan: {exc}", "Language": "-", "Category": "-",
+              "Seconds": 0, "Required": "-"}]
+        )
+    except Exception as exc:
+        return pd.DataFrame(
+            [{"Task": f"Cannot build a plan: {type(exc).__name__}: {exc}",
+              "Language": "-", "Category": "-", "Seconds": 0, "Required": "-"}]
+        )
     rows = [
         {
             "Task": t.title,

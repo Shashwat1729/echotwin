@@ -17,7 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ..exceptions import BackendNotAvailableError, UnsupportedCapabilityError
+from ..exceptions import BackendNotAvailableError
 from ..voice.base import AbstractVoiceBackend
 from ..voice.capabilities import VoiceBackendCapabilities
 
@@ -96,7 +96,21 @@ class ChatterboxMultilingualBackend(AbstractVoiceBackend):
             return False
 
     def is_available(self) -> bool:
-        return self._package_installed() and self._model is not None
+        """True when the package is importable AND its weights are cached locally.
+
+        Mirrors the VoxCPM probe: the *instance* never holds a model until
+        ``load()`` runs, so checking ``self._model`` made this permanently
+        False and disabled the documented no-8GB-GPU fallback.
+        """
+        if not self._package_installed():
+            return False
+        import os
+        from pathlib import Path
+
+        cache = Path(
+            os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface" / "hub")
+        )
+        return any(cache.glob("models--ResembleAI--chatterbox*")) if cache.exists() else False
 
     def load(self, config: dict) -> None:
         super().load(config)
@@ -157,10 +171,9 @@ class ChatterboxMultilingualBackend(AbstractVoiceBackend):
     ) -> Path:
         self._ensure_loaded()
         if seed is not None:
-            raise UnsupportedCapabilityError(
-                "Chatterbox Multilingual does not support deterministic seeding; "
-                "output varies between runs."
-            )
+            # Chatterbox Multilingual has no deterministic seeding; the
+            # capability gate raises before the backend is called.
+            self._require_capability("supports_seed", True)
         language_id = kwargs.get("language_id", "en")
         ref = Path(reference_audio)
         out = Path(output_path) if output_path else Path("echotwin_chatterbox_output.wav")

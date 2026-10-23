@@ -85,7 +85,7 @@ def eval_poll(last_marker: str):
         return render.callout("info", text), gr.skip(), gr.skip(), gr.skip(), marker
     if marker == last_marker:
         return gr.skip(), gr.skip(), gr.skip(), gr.skip(), marker
-    if job["status"] != "completed":
+    if job["status"] not in {"completed", "completed_cancelled"}:
         reason = job.get("error") or f"Job {job['status']}."
         return render.callout("error", reason), gr.skip(), gr.skip(), gr.skip(), marker
     report = EvaluationReport.model_validate(job["result"]["report"])

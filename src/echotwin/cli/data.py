@@ -102,6 +102,14 @@ def import_whatsapp(
         str(path), conversation_prefix, len(all_messages), None, total_report
     )
     state.set("last_import_id", import_id)
+    # A new import invalidates the previous author/dataset/profile pointers:
+    # leaving them set makes the next command silently use the OLD import.
+    from ..workspace import get_store
+
+    store = get_store()
+    store.set_pointer("current_import", import_id)
+    for stale in ("current_author", "current_dataset", "current_profile"):
+        store.set_pointer(stale, None)
     from ..settings import get_settings
 
     out_dir = get_settings().artifacts_dir / "imports" / import_id

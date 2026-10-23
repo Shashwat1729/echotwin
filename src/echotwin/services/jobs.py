@@ -14,6 +14,7 @@ that had in fact been committed. A cooperatively-stopped function returns
 
 from __future__ import annotations
 
+import contextlib
 import threading
 import time
 import uuid
@@ -31,6 +32,20 @@ _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="echotwin-job")
 _heavy = threading.Semaphore(1)
 _cancel: dict[str, threading.Event] = {}
 _lock = threading.Lock()
+
+
+def _repair_stale_jobs() -> None:
+    """Terminalise jobs left behind by a previous process.
+
+    A job row that survived a restart can never make progress; without this it
+    would stay 'queued' forever (and refuse to cancel). Safe to call
+    repeatedly.
+    """
+    with contextlib.suppress(Exception):  # never block startup on a repair
+        get_store().fail_interrupted()
+
+
+_repair_stale_jobs()
 
 
 def _now() -> str:
@@ -133,6 +148,12 @@ def cancel(job_id: str) -> bool:
     with _lock:
         event = _cancel.get(job_id)
     if event is None:
+        # A job from a previous process has no in-memory event. If it is still
+        # queued we can finish it here; if it is 'running' it belongs to another
+        # live process and must not be touched.
+        if job["status"] == "queued":
+            _finish(job_id, "cancelled")
+            return True
         return False
     event.set()
     if job["status"] == "queued":

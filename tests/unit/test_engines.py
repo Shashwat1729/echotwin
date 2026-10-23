@@ -146,7 +146,14 @@ def test_registry_lists_ngram_availability():
     infos = {i.id: i for i in registry.list_engines()}
     assert infos["ngram"].available and infos["ngram"].reason_unavailable is None
     hf = [i for i in infos.values() if i.kind == "local_hf"]
-    assert hf and all(not i.available and i.reason_unavailable for i in hf)
+    assert hf
+    # Whether an engine is available depends on what the user has downloaded
+    # locally, so assert the *contract* rather than a fixed availability.
+    for i in hf:
+        if i.available:
+            assert i.reason_unavailable is None
+        else:
+            assert i.reason_unavailable
     assert "mock" not in infos or mock_allowed()
 
 

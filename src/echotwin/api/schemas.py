@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -30,13 +32,15 @@ class TargetAuthorRequest(BaseModel):
 
 
 class DatasetPrepareRequest(BaseModel):
-    context_messages: int = 4
-    max_context_chars: int = 1200
-    min_target_chars: int = 2
-    max_target_chars: int = 800
-    split_mode: str = "conversation"
-    test_fraction: float = 0.1
-    val_fraction: float = 0.1
+    """Bounds are enforced here so bad input returns 422, never a 500."""
+
+    context_messages: int = Field(default=4, ge=0, le=20)
+    max_context_chars: int = Field(default=1200, ge=100, le=20000)
+    min_target_chars: int = Field(default=2, ge=1, le=1000)
+    max_target_chars: int = Field(default=800, ge=10, le=20000)
+    split_mode: Literal["conversation", "chronological"] = "conversation"
+    test_fraction: float = Field(default=0.1, ge=0.0, le=0.5)
+    val_fraction: float = Field(default=0.1, ge=0.0, le=0.5)
 
 
 class GenerateRequest(BaseModel):
@@ -53,12 +57,29 @@ class EvalRequest(BaseModel):
     method: str = "plain"
     engine: str = "ngram"
     model: str = ""
-    rag_k: int = 3
-    max_prompts: int = 50
+    rag_k: int = Field(default=3, ge=0, le=10)
+    max_prompts: int = Field(default=50, ge=1, le=500)
 
 
 class TrainRequest(BaseModel):
+    """Training job parameters.
+
+    Unknown fields are forwarded to ``training.sft.TrainingConfig``; the config
+    itself is validated *before* the job starts so a bad request is a 422, not
+    a job that fails halfway through.
+    """
+
     model_config = {"extra": "allow"}  # remaining fields feed training.sft.TrainingConfig
+
+    method: Literal["full", "lora", "qlora"] = "lora"
+    epochs: float = Field(default=3.0, gt=0, le=50)
+    learning_rate: float = Field(default=1e-4, gt=0, le=1.0)
+    batch_size: int = Field(default=1, ge=1, le=64)
+    gradient_accumulation_steps: int = Field(default=8, ge=1, le=256)
+    seq_len: int = Field(default=1024, ge=32, le=32768)
+    output_dir: str | None = Field(
+        default=None, description="Defaults to ECHOTWIN_HOME/artifacts/experiments"
+    )
 
 
 class GenerateResponse(BaseModel):

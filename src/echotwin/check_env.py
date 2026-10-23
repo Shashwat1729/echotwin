@@ -30,9 +30,18 @@ def doctor_report() -> dict:
         healthy = False
 
     core = ["pydantic", "yaml", "typer", "fastapi", "numpy", "regex"]
-    missing_core = [m for m in core if _module_status(m) == "missing"]
-    lines.append("core deps: " + ("OK" if not missing_core else f"MISSING {missing_core}"))
-    if missing_core:
+    # A core dependency that is *present but broken* (imports and raises - e.g.
+    # a blocked native DLL) is just as fatal as a missing one, so anything that
+    # is not a working import counts against health.
+    broken_core: list[str] = []
+    for m in core:
+        status = _module_status(m)
+        if status == "missing":
+            broken_core.append(f"{m} (missing)")
+        elif status.startswith("blocked"):
+            broken_core.append(f"{m} ({status})")
+    lines.append("core deps: " + ("OK" if not broken_core else f"BROKEN {broken_core}"))
+    if broken_core:
         healthy = False
 
     optional = {

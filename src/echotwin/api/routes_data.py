@@ -25,8 +25,7 @@ router = APIRouter(tags=["data"])
 
 @router.post("/imports/upload", response_model=ImportResponse)
 async def import_upload(file: UploadFile = File(...)) -> ImportResponse:
-    data = await file.read()
-    target = service.save_upload(file.filename or "upload.zip", data)
+    target = await service.save_upload_stream(file, file.filename)
     result = imports.import_export(target, "conversation-1")
     return ImportResponse(
         import_id=result.import_id,

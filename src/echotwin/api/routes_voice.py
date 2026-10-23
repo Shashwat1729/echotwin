@@ -111,8 +111,7 @@ async def upload_recording(profile_id: str, file: UploadFile = File(...)) -> dic
     from ..voice.metadata import RecordingEntry, load_profile, save_profile
     from ..voice.phoneme_coverage import analyze_texts, coverage_texts_for_recordings
 
-    data = await file.read()
-    path = service.save_upload(file.filename or "recording.wav", data)
+    path = await service.save_upload_stream(file, file.filename)
     prof = load_profile(profile_id)
     try:
         clip = read_audio(path)

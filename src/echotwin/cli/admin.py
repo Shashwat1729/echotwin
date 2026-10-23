@@ -144,11 +144,13 @@ def artifacts_delete(artifact_id: str) -> None:
 
 
 @privacy_app.command("export")
-def privacy_export(out: Path = typer.Option(Path("echotwin-export"))) -> None:
+def privacy_export(out: Path = typer.Option(None, help="destination folder (default: <ECHOTWIN_HOME>/export)")) -> None:
     """Export all local EchoTwin data (profiles, artifacts, consents) to a folder."""
     from ..privacy_exporter import export_all
+    from ..settings import get_settings
 
-    export_all(out, console)
+    target = Path(out) if out is not None else get_settings().home / "export"
+    export_all(target, console)
 
 
 @privacy_app.command("delete")

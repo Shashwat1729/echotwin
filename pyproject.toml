@@ -72,7 +72,9 @@ dev = [
 ]
 
 [project.scripts]
-echotwin = "echotwin.cli:app"
+# `main` (not `app`) so EchoTwinError exceptions are rendered as actionable
+# messages with the documented exit codes instead of raw tracebacks.
+echotwin = "echotwin.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/Shashwat1729/echotwin"

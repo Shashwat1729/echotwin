@@ -94,8 +94,8 @@ class VoxCPMBackend(AbstractVoiceBackend):
             reference_transcript_optional=True,
             supports_multiple_references=False,
             supports_zero_shot_reference_conditioning=True,
-            supports_speaker_adaptation=True,  # via upstream SFT/LoRA scripts
-            speaker_adaptation_min_minutes=5.0,
+            supports_speaker_adaptation=False,
+            speaker_adaptation_min_minutes=None,
             supports_seed=True,
             supports_streaming=True,
             license="Apache-2.0 (model + code)",
@@ -106,6 +106,8 @@ class VoxCPMBackend(AbstractVoiceBackend):
                 "Controllable/style-guarded generation can vary between runs (upstream note).",
                 "Hindi WER in the upstream multilingual benchmark is high; verify Hindi "
                 "output with the evaluation suite before relying on it.",
+                "Speaker adaptation (per-speaker SFT/LoRA) is supported upstream but NOT "
+                "implemented by EchoTwin; this adapter does reference conditioning only.",
             ],
             reference_docs_url="https://github.com/OpenBMB/VoxCPM",
         )
@@ -213,6 +215,12 @@ class VoxCPMBackend(AbstractVoiceBackend):
         self._ensure_loaded()
         if not text or not text.strip():
             raise UnsupportedCapabilityError("Empty text; nothing to synthesize.")
+        if seed is not None:
+            self._require_capability("supports_seed", True)
+        if transcript and not self.capabilities().get("reference_transcript_optional"):
+            raise UnsupportedCapabilityError(
+                f"Backend '{self.name}' cannot condition on a reference transcript."
+            )
         ref = Path(reference_audio)
         if not ref.exists():
             raise BackendNotAvailableError(f"Reference audio not found: {ref}")

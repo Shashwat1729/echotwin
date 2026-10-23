@@ -48,7 +48,7 @@ def parquet_clips(repo: str, parquet_path: str, lang: str, n: int, prefix: str) 
     try:
         info = dataset_info(repo)
         license_name = info.cardData.get("license", "see dataset page") if info.cardData else "see dataset page"
-    except Exception:  # noqa: BLE001
+    except Exception:
         license_name = "see dataset page"
     clips = []
     taken = 0
@@ -61,7 +61,7 @@ def parquet_clips(repo: str, parquet_path: str, lang: str, n: int, prefix: str) 
             continue
         try:
             meta = save_clip(OUT / lang, f"{prefix}-{taken:02d}", blob, str(text).strip())
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             print(_safe(f"  skip unreadable row: {e}"))
             continue
         meta.update({"source_repo": repo, "license": license_name, "language": lang})
@@ -97,7 +97,7 @@ def commons_words(n: int) -> list[dict]:
                 req = urllib.request.Request(url, headers=UA)
                 blob = urllib.request.urlopen(req, timeout=60).read()
                 meta = save_clip(OUT / "hi-words", f"ll-{len(clips):02d}", blob, word)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 print(_safe(f"  skip {title}: {e}"))
                 continue
             meta.update({"source_url": url, "license": "CC BY-SA 4.0 (Lingua Libre via Wikimedia Commons)",

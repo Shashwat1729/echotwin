@@ -27,6 +27,11 @@ def send(text: str, history: list, session: chat_service.ChatSession, engine: st
         reply = chat_service.reply(session, text, engine, method)
     except EchoTwinError as exc:
         return text, history, session, gr.skip(), warn(exc)
+    except Exception as exc:
+        # crash the page with a raw traceback; show a readable message instead.
+        return text, history, session, gr.skip(), render.callout(
+            "error", f"Generation failed: {type(exc).__name__}: {exc}"
+        )
     if reply.error:
         return text, history, session, gr.skip(), render.callout("error", reply.error)
     return "", list(session.history), session, _why(reply), ""

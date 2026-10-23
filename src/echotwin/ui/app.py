@@ -41,9 +41,17 @@ def cancel_job(job_id: str) -> str:
     if not job_id:
         return render.callout("warn", "Enter a job id.")
     try:
-        jobs.cancel(job_id)
+        cancelled = jobs.cancel(job_id)
     except Exception as exc:
         return render.callout("warn", str(exc))
+    if not cancelled:
+        # A job that is already finished, unknown, or owned by a dead process
+        # cannot be cancelled: saying "cancel requested" would be a lie.
+        return render.callout(
+            "warn",
+            f"Job {job_id} was not cancelled - it may already be finished, unknown, "
+            "or not running in this process.",
+        )
     return render.callout("ok", f"Cancel requested for {job_id}.")
 
 

@@ -119,5 +119,14 @@ def prefs_annotate() -> None:
 
 @prefs_app.command("validate")
 def prefs_validate(pairs: Path = typer.Argument(...)) -> None:
-    v = validate_pairs(load_pairs(pairs))
+    """Validate a preference-pairs file (missing file = error, not success)."""
+
+    if not pairs.exists():
+        _fail(f"Preference pairs file not found: {pairs}")
+    pair_list = load_pairs(pairs)
+    if not pair_list:
+        _fail(f"No preference pairs found in {pairs} (file is empty?)")
+    v = validate_pairs(pair_list)
     console.print(json.dumps(v.model_dump(), indent=1))
+    if not v.valid:
+        raise typer.Exit(1)

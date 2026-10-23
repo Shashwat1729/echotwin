@@ -104,6 +104,25 @@ evaluation, preference optimization, voice cloning + recording, pronunciation
 coverage, hardware, privacy, licenses, troubleshooting, API/CLI, FAQ, and the
 research roadmap.
 
+### [Measured results](docs/results.md)
+
+Every number in this repository was produced by running it here — see
+[`docs/results.md`](docs/results.md) for the commands, the corpora (public,
+licensed, non-personal), and the honest gaps:
+
+| measurement | result |
+|---|---|
+| Speaker-similarity evaluator (WavLM x-vector) | 0.973 same-speaker vs **0.973 different-speaker — does not separate** |
+| Speaker-similarity evaluator (ECAPA-TDNN) | 0.604 vs **−0.044 — separates** → now the primary evaluator, calibrated against the user's own clips |
+| Text style cosine, base model vs n-gram persona | 0.078 → 0.146 on 400 real dialogues |
+| N-gram length fidelity (generated / author) | 1.76 → **1.06** |
+| Verbatim training-text copies | 0.25 → **0.00** |
+| Real human speech through the whole voice analysis path | quality, transcript, coverage, plan, selection — all sane |
+
+Not measured (and said so everywhere): no clone has been synthesised, because
+no backend weights are installed. The LoRA-vs-base comparison runs on Kaggle
+GPU (`notebooks/kaggle/`) and is queued, not finished.
+
 ## Troubleshooting
 
 Start with `echotwin doctor` and [`docs/troubleshooting.md`](docs/troubleshooting.md).

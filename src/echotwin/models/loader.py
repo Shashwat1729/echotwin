@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import platform
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Protocol
 
 from ..exceptions import ModelNotAvailableError, UnsupportedCapabilityError
@@ -223,6 +224,31 @@ def _compile_module_pattern(pattern: str):
 
     escaped = re.escape(pattern).replace(re.escape(".*"), ".*")
     return re.compile(escaped)
+
+
+def load_model_with_adapter(spec: ModelSpec, adapter_dir: str | Path, *, quantize: str | None = None):
+    """Load a base model and attach a trained LoRA adapter for inference.
+
+    The adapter is a PEFT directory produced by ``run_sft``. We load the base
+    weights first (shared helper) and then attach the adapter, so inference
+    uses exactly the same code path as training.
+    """
+    _require("peft", "train")  # fail early with the documented extra name
+    from peft import PeftModel
+
+    loaded = load_model(spec, quantize=quantize)
+    adapter_path = Path(adapter_dir)
+    if not adapter_path.exists():
+        raise ModelNotAvailableError(f"Adapter directory not found: {adapter_path}")
+    try:
+        loaded.model = PeftModel.from_pretrained(loaded.model, str(adapter_path))
+    except Exception as e:
+        raise ModelNotAvailableError(
+            f"Could not attach LoRA adapter from {adapter_path}: {e}. "
+            "Check that the adapter was trained on the same base model."
+        ) from e
+    loaded.notes.append(f"attached LoRA adapter: {adapter_path.name}")
+    return loaded
 
 
 def unload(model) -> None:

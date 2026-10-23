@@ -34,9 +34,15 @@ from ..voice.phoneme_coverage import (
     analyze_texts,
     coverage_texts_for_recordings,
 )
-from ..voice.recording_plan import RecordingPlan, RecordingPreferences, generate_plan
+from ..voice.recording_plan import (
+    InventoryItem,
+    RecordingPlan,
+    RecordingPreferences,
+    generate_plan,
+)
 from ..voice.reference_selection import ReferenceCandidate, select_references
 from ..voice.registry import get_backend
+from ..voice.script_library import all_scripts
 from ..voice.synthesis import SynthesisResult
 from ..voice.synthesis import synthesize as _synthesize
 from ..voice.transcript_validation import TranscriptCheck, verify_transcript
@@ -65,10 +71,33 @@ def _require_profile() -> VoiceProfile:
     return prof
 
 
+def inventory_from_profile(prof: VoiceProfile | None) -> list[InventoryItem]:
+    """Build the recording inventory the planner needs from a voice profile."""
+    if prof is None:
+        return []
+    return [
+        InventoryItem(
+            recording_id=r.recording_id,
+            language=r.language,
+            quality_verdict=r.quality_verdict,
+            duration_seconds=r.duration_seconds,
+            category=r.category,
+            has_transcript=r.has_transcript,
+        )
+        for r in prof.recordings
+    ]
+
+
 def plan(backend: str, languages: list[str], max_minutes: float) -> RecordingPlan:
+    """Generate a recording plan that reflects what the user already recorded.
+
+    Passing an empty inventory here would tell a user with three good
+    references to start over, so the plan is always built from the current
+    profile when one exists.
+    """
     caps = VoiceBackendCapabilities(**get_backend(backend).capabilities())
     prefs = RecordingPreferences(languages=languages, max_minutes=float(max_minutes))
-    return generate_plan(caps, prefs, [])
+    return generate_plan(caps, prefs, inventory_from_profile(current_profile()))
 
 
 def save_recording(path: str | Path, language: str, script_id: str = "") -> RecordingResult:
@@ -127,11 +156,21 @@ def analyze() -> list[dict]:
 
 
 def set_transcript(recording_id: str, text: str) -> TranscriptCheck:
+    """Store a transcript and verify it against the script that was read.
+
+    Without a known script there is nothing to compare against, so the check is
+    reported as unverified rather than as a spurious mismatch.
+    """
     prof = _require_profile()
     rec = next((r for r in prof.recordings if r.recording_id == recording_id), None)
     if rec is None:
         raise ArtifactNotFoundError(f"Recording {recording_id!r} not found in the profile.")
-    check = verify_transcript("", text, source="user")
+    intended = ""
+    if rec.script_id:
+        entry = next((s for s in all_scripts() if s.id == rec.script_id), None)
+        if entry is not None:
+            intended = entry.text
+    check = verify_transcript(intended, text, source="user", language=rec.language)
     rec.transcript = text
     rec.has_transcript = bool(text)
     rec.transcript_check = check.model_dump()

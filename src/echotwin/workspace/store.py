@@ -199,9 +199,16 @@ class Store:
         return [_job_dict(r) for r in rows]
 
     def fail_interrupted(self) -> int:
+        """Mark jobs left over by a crashed process as failed.
+
+        Both 'running' and 'queued' rows are terminalised: a job that was
+        queued when the process died can never start, and leaving it queued
+        makes it un-cancellable (and visible forever) in the UI.
+        """
         with self.write() as c:
             cur = c.execute(
-                "UPDATE job SET status='failed', error='interrupted' WHERE status='running'"
+                "UPDATE job SET status='failed', error='interrupted' "
+                "WHERE status IN ('running', 'queued')"
             )
             return cur.rowcount
 

@@ -39,13 +39,27 @@ def generate(req: GenerateRequest) -> GenerateResponse:
 
 @router.post("/training/jobs")
 def training_job(req: TrainRequest) -> dict:
+    from ..settings import get_settings
+    from ..storage.paths import ensure_within
     from ..training.sft import TrainingConfig, run_sft
 
     payload = req.model_dump()
     ds = datasets.load()  # raises DatasetError when nothing is prepared
 
-    def _work(ctx: jobs.JobContext) -> dict:
+    # Validate the training config *before* starting: a bad request must be a
+    # 4xx, not a job that dies after creating directories.
+    payload.setdefault("output_dir", str(get_settings().artifacts_dir / "experiments"))
+    if not payload.get("output_dir"):
+        payload["output_dir"] = str(get_settings().artifacts_dir / "experiments")
+    try:
         cfg = TrainingConfig(**payload)
+    except Exception as e:
+        raise DatasetError(f"Invalid training configuration: {e}") from e
+    # The output directory is client-supplied: keep it inside the workspace.
+    out_dir = ensure_within(get_settings().home, cfg.output_dir)
+    cfg = cfg.model_copy(update={"output_dir": str(out_dir)})
+
+    def _work(ctx: jobs.JobContext) -> dict:
         ctx.progress(0.05, "Training")
         return dataclasses.asdict(run_sft(ds.train, ds.val, cfg))
 

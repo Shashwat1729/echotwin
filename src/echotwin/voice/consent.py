@@ -21,6 +21,7 @@ from ..storage.db import get_consent, record_consent
 
 SCOPE_WHATSAPP = "whatsapp_import"
 SCOPE_VOICE = "voice_cloning"
+KNOWN_SCOPES = (SCOPE_WHATSAPP, SCOPE_VOICE)
 
 VOICE_CONSENT_STATEMENT = (
     "I confirm that the voice I am cloning is my own, or that I am explicitly "
@@ -36,7 +37,21 @@ class ConsentRecord(BaseModel):
     details: dict = Field(default_factory=dict)
 
 
+def _check_scope(scope: str) -> str:
+    """Reject unknown scopes.
+
+    A typo in a scope name would otherwise create a consent record that
+    nothing ever checks, giving a false sense of coverage.
+    """
+    if scope not in KNOWN_SCOPES:
+        raise ValueError(
+            f"Unknown consent scope {scope!r}; known scopes: {list(KNOWN_SCOPES)}"
+        )
+    return scope
+
+
 def grant_consent(scope: str, details: dict) -> ConsentRecord:
+    _check_scope(scope)
     record_consent(scope, True, details)
     rec = get_consent(scope)
     return ConsentRecord(
@@ -74,4 +89,5 @@ def consent_prompt_text() -> str:
 
 
 def revoke_consent(scope: str) -> None:
+    _check_scope(scope)
     record_consent(scope, False, {"revoked_at": datetime.now(UTC).isoformat()})

@@ -41,11 +41,11 @@ def bench_dataset() -> dict:
 
 
 def bench_baseline() -> dict:
-    from echotwin.evaluation.baseline import heldout_prompts, run_baseline
-    from echotwin.models.generation import MockGenerator
-    from echotwin.dataset.builder import DatasetConfig, build_examples, load_jsonl, save_jsonl
+    from echotwin.dataset.builder import DatasetConfig, build_examples
     from echotwin.dataset.splits import SplitConfig, split_dataset
+    from echotwin.evaluation.baseline import heldout_prompts, run_baseline
     from echotwin.ingestion import WhatsAppParser, pick_participant
+    from echotwin.models.generation import MockGenerator
 
     text = (ROOT / "examples" / "synthetic_whatsapp.txt").read_text(encoding="utf-8")
     result = WhatsAppParser().parse_text(text, "bench")

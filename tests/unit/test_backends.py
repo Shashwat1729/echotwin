@@ -52,8 +52,15 @@ class TestVoxCPMCapabilities:
         assert "Apache-2.0" in caps["license"]
 
     def test_adaptation_is_separate_workflow(self):
+        # EchoTwin does not implement speaker adaptation, so it must not
+        # advertise the capability; the upstream route is documented instead.
         caps = get_backend("voxcpm").capabilities()
-        assert caps["supports_speaker_adaptation"] is True  # via upstream LoRA/SFT scripts
+        assert caps["supports_speaker_adaptation"] is False
+        assert caps["speaker_adaptation_min_minutes"] is None
+        assert any(
+            "SFT/LoRA" in lim or "upstream" in lim.lower()
+            for lim in caps["known_limitations"]
+        ), caps["known_limitations"]
 
 
 class TestChatterboxCapabilities:

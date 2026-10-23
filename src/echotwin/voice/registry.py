@@ -37,7 +37,9 @@ def get_backend(name: str, *, config: dict | None = None) -> AbstractVoiceBacken
         # Reuse the loaded instance: a fresh one re-read the multi-GB model
         # checkpoint on EVERY synthesis.
         instance = _cache[key]
-        if config:
+        # Only (re)load when not yet loaded - reloading would re-read the
+        # multi-GB checkpoint from disk for no reason.
+        if config and not instance.health_check().get("loaded"):
             instance.load(config)
         return instance
     instance = backend_cls()

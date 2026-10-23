@@ -19,7 +19,6 @@ from ..engines import registry
 from ..evaluation.baseline import RETRIEVAL_METHODS, build_messages
 from ..exceptions import ConfigurationError, DatasetError, ModelNotAvailableError
 from ..models.generation import GeneratorConfig
-from ..settings import get_settings
 from ..workspace import get_store
 from . import datasets, profiles
 
@@ -57,11 +56,13 @@ _cache_lock = threading.Lock()
 
 def _context(dataset_id: str) -> _Context:
     """Retrieval index, few-shot pairs and profile fragment, cached until files change."""
-    base = get_settings().artifacts_dir / "datasets" / dataset_id
     prof = profiles.current_path()
+    # Resolve the dataset through the service so a missing dataset raises a
+    # clean ArtifactNotFoundError (404) instead of an unhandled OSError (500).
+    ds_id, ds_dir = datasets._dataset_dir(dataset_id)
     key = (
-        dataset_id,
-        (base / "examples.jsonl").stat().st_mtime_ns,
+        ds_id,
+        (ds_dir / "examples.jsonl").stat().st_mtime_ns,
         str(prof),
         prof.stat().st_mtime_ns if prof else None,
     )

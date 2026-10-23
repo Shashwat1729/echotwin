@@ -63,6 +63,11 @@ sample_audio/**/*.flac
 sample_audio/**/*.mp3
 sample_audio/**/*.ogg
 
+# Fetched public text corpus (reproducible via scripts/fetch_public_corpus.py).
+# Like sample_audio/, the data itself is NOT committed; the fetch script and
+# the provenance in docs/results.md keep it reproducible and attributable.
+sample_corpus/
+
 # Notebook checkpoints
 .ipynb_checkpoints/
 

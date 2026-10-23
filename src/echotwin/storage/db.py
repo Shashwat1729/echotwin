@@ -93,16 +93,35 @@ def delete_artifacts_of_kind(kind: str, *, delete_files: bool = True) -> int:
 # Consent
 # ---------------------------------------------------------------------------
 def record_consent(scope: str, granted: bool, details: dict | None = None) -> str:
+    """Record a consent decision, keeping the original grant as evidence.
+
+    Revoking consent must not erase the record of *what* was consented to and
+    *when*: a consent trail that only remembers the current state is worthless
+    as evidence. We therefore update the row in place and keep the grant
+    details, appending the revocation timestamp.
+    """
     consent_id = f"consent-{scope}"
+    details = dict(details or {})
     with get_connection() as conn:
+        row = conn.execute(
+            "SELECT details_json, granted_at FROM consents WHERE scope=?", (scope,)
+        ).fetchone()
+        previous = json.loads(row["details_json"]) if row and row["details_json"] else {}
+        granted_at = row["granted_at"] if row else None
+        merged = {**previous, **details}
+        if not granted:
+            merged["revoked_at"] = _now()
+        else:
+            granted_at = _now()
         conn.execute(
-            "INSERT OR REPLACE INTO consents(consent_id, scope, granted, granted_at, details_json) VALUES(?,?,?,?,?)",
+            "INSERT OR REPLACE INTO consents(consent_id, scope, granted, granted_at, "
+            "details_json) VALUES(?,?,?,?,?)",
             (
                 consent_id,
                 scope,
                 int(granted),
-                _now() if granted else None,
-                json.dumps(details, default=str),
+                granted_at,
+                json.dumps(merged, default=str),
             ),
         )
     return consent_id

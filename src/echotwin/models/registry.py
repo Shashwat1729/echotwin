@@ -82,6 +82,19 @@ REGISTRY: dict[str, ModelSpec] = {
         vram_fp16_gb_approx=4.5,
         vram_4bit_gb_approx=2.0,
     ),
+    "qwen3-0.6b": ModelSpec(
+        name="qwen3-0.6b",
+        hf_model_id="Qwen/Qwen3-0.6B",
+        family="qwen3",
+        license="Apache-2.0",
+        params_b=0.6,
+        languages_note="Smallest Qwen3; strict smoke tests and very slow CPUs only — "
+        "too small to hold base conversation quality for measured comparisons.",
+        thinking_mode="switchable",
+        multilingual_notes="Ultra-CPU tier; runs on any laptop, ~1.5 GB fp16.",
+        vram_fp16_gb_approx=1.5,
+        vram_4bit_gb_approx=0.8,
+    ),
     "qwen3-4b": ModelSpec(
         name="qwen3-4b",
         hf_model_id="Qwen/Qwen3-4B",
@@ -188,7 +201,7 @@ def list_models() -> list[ModelSpec]:
 
 
 def recommended_for_cpu() -> list[str]:
-    return ["qwen3-1.7b", "gemma3n-e4b-it"]
+    return ["qwen3-0.6b", "qwen3-1.7b", "gemma3n-e4b-it"]
 
 
 def recommended_for_hindi() -> list[str]:

@@ -1,0 +1,16 @@
+{
+  "id": "shashwat1729/echotwin-lora-style-transfer",
+  "title": "Echotwin Lora Style Transfer",
+  "code_file": "echotwin_lora.ipynb",
+  "kernel_type": "notebook",
+  "language": "python",
+  "is_private": true,
+  "enable_gpu": true,
+  "gpu_type": "T4",
+  "accelerator": "GPU",
+  "dataset_sources": [
+    "shashwat1729/echotwin-source"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}

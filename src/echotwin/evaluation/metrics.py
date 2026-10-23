@@ -266,6 +266,57 @@ def prompt_discrimination(generated_texts: list[str]) -> dict:
     }
 
 
+# Words that carry no topical signal; excluded from prompt uptake.
+_UPTAKE_STOPWORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "but", "by", "can", "did", "do",
+    "does", "for", "from", "had", "has", "have", "he", "her", "him", "his", "how",
+    "i", "if", "in", "is", "it", "its", "me", "my", "no", "not", "of", "on", "or",
+    "our", "out", "she", "should", "so", "than", "that", "the", "their", "them",
+    "then", "there", "they", "this", "to", "up", "us", "was", "we", "were", "what",
+    "when", "where", "which", "who", "why", "will", "with", "would", "you", "your",
+}
+
+
+def prompt_uptake(prompts: list[str], generated_texts: list[str]) -> dict:
+    """How much of the prompt's *content* shows up in the reply.
+
+    A model that ignores the prompt and emits a canned reply scores ~0; a model
+    that answers the question at hand usually carries a few of the prompt's
+    content words over. This is a proxy for responsiveness, not for correctness:
+    a fluent, relevant-looking reply that answers a different question still
+    scores high.
+    """
+    n = min(len(prompts), len(generated_texts))
+    if n == 0:
+        return {"n": 0, "mean_uptake": None, "note": "no generations"}
+    per_pair: list[float] = []
+    for prompt, gen in zip(prompts[:n], generated_texts[:n], strict=True):
+        content = [
+            w
+            for w in re.findall(r"[A-Za-z\u0900-\u097F']+", (prompt or "").lower())
+            if w not in _UPTAKE_STOPWORDS and len(w) > 2
+        ]
+        if not content:
+            continue
+        gen_words = set(re.findall(r"[A-Za-z\u0900-\u097F']+", (gen or "").lower()))
+        hits = sum(1 for w in content if w in gen_words)
+        per_pair.append(hits / len(content))
+    if not per_pair:
+        return {"n": n, "mean_uptake": None, "note": "prompts had no content words"}
+    return {
+        "n": len(per_pair),
+        "mean_uptake": round(sum(per_pair) / len(per_pair), 4),
+        "zero_uptake_share": round(
+            sum(1 for v in per_pair if v == 0.0) / len(per_pair), 4
+        ),
+        "note": (
+            "Share of the prompt's content words echoed in the reply. High values "
+            "indicate responsiveness; they do NOT indicate the reply is correct."
+        ),
+    }
+
+
+
 def unsupported_claims(
     generated_texts: list[str],
     context_texts: list[str] | None = None,

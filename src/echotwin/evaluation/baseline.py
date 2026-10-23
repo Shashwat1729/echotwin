@@ -57,11 +57,17 @@ RETRIEVAL_METHODS = {"style_rag", "style_rag_ft"}
 def heldout_prompts(test_examples: list[TrainingExample], max_prompts: int = 100) -> list[dict]:
     """Identical evaluation prompts from the held-out split.
 
-    Context turns are plain dicts (JSON-serializable for predictions files).
+    Only examples that have at least one context turn are returned: a chat
+    model cannot be given an empty conversation (the chat template raises),
+    and a reply with nothing to reply to is not a measurable "reply". The
+    number of skipped examples is reported by the caller via
+    ``count_context_free``.
     """
     prompts = []
-    for ex in test_examples[:max_prompts]:
+    for ex in test_examples[: max_prompts * 3]:
         context = [{"role": t.role, "content": t.content} for t in ex.messages[:-1]]
+        if not context:
+            continue
         prompts.append(
             {
                 "messages": context,
@@ -70,7 +76,19 @@ def heldout_prompts(test_examples: list[TrainingExample], max_prompts: int = 100
                 "conversation_id": ex.metadata.conversation_id,
             }
         )
+        if len(prompts) >= max_prompts:
+            break
     return prompts
+
+
+def count_context_free(examples: list[TrainingExample]) -> int:
+    """Examples whose target has no preceding context.
+
+    These cannot be evaluated as *replies* (a chat model has nothing to reply
+    to, and a chat template rejects an empty conversation), so they are excluded
+    from the evaluation set and counted for honest reporting.
+    """
+    return sum(1 for ex in examples if not ex.messages[:-1])
 
 
 def build_messages(
@@ -232,6 +250,14 @@ def compare_runs(paths: list[str | Path]) -> dict:
     if not runs:
         return {}
     common = sorted(set.intersection(*[set(r["index"] for r in recs) for recs in runs.values()]))
+    if not common:
+        # Runs on different splits cannot be compared; silently returning an
+        # empty alignment looks like "no results" rather than "wrong inputs".
+        raise ValueError(
+            "These prediction runs share no prompt indices - they were produced on "
+            "different splits or prompt sets, so they cannot be compared. Re-run the "
+            "methods against the same held-out split."
+        )
     table = {
         name: {r["index"]: r.get("generated", "") for r in recs} for name, recs in runs.items()
     }

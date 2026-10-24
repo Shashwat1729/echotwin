@@ -5,9 +5,9 @@
   "kernel_type": "notebook",
   "language": "python",
   "is_private": true,
-  "enable_gpu": true,
-  "gpu_type": "T4",
-  "accelerator": "GPU",
+  "accelerator": "CPU",
+  "enable_gpu": false,
+  "isPrivate": true,
   "dataset_sources": [
     "shashwat1729/echotwin-source"
   ],

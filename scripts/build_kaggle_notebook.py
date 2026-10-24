@@ -91,7 +91,7 @@ it is not a claim about any specific person.
     (
         "code",
         """!pip install -q --upgrade "transformers>=5.0" "peft>=0.21" "trl>=0.15" \\
-    accelerate datasets huggingface_hub pyarrow soundfile scipy numpy pandas pytest
+    "numpy<3" accelerate datasets huggingface_hub pyarrow soundfile scipy pandas pytest
 import torch, transformers, peft
 print("torch", torch.__version__, "cuda", torch.cuda.is_available(),
       torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu")

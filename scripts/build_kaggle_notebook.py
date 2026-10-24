@@ -8,8 +8,10 @@ no credential is ever embedded in the notebook file.
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -19,10 +21,54 @@ KERNEL_ID = "shashwat1729/echotwin-lora-style-transfer"
 KERNEL_TITLE = "Echotwin Lora Style Transfer"
 SOURCE_DATASET = "shashwat1729/echotwin-source"
 
-CELLS = [
-    (
-        "markdown",
-        """# EchoTwin — real-corpus LoRA style transfer (Kaggle GPU)
+# TPU is deliberately NOT a tier: the whole training/eval stack is PyTorch;
+# a TPU kernel needs torch_xla end to end (optimizer + generation loop), which
+# is a porting project -- not a metadata flag.
+TIERS: dict[str, dict[str, Any]] = {
+    "gpu": {
+        "accelerator": "GPU",
+        "gpu_type": "T4",
+        "enable_gpu": True,
+        "model": "qwen3-4b-it-2507",
+        "epochs": 2,
+        "lora_rank": 16,
+        "learning_rate": "1e-4",
+        "max_train_examples": 700,
+        "max_eval_prompts": 60,
+        "max_new_tokens": 56,
+        # GPU tier skips the CPU-torch preinstall entirely (CUDA build preinstalled).
+        "cpu_torch": None,
+        "cpu_torchvision": None,
+        "session_note": "T4 GPU (the authoritative run; ~30 GPU-hours/week quota)",
+    },
+    "cpu": {
+        "accelerator": "CPU",
+        "gpu_type": None,
+        "enable_gpu": False,
+        # The smallest registered spec: proven LoRA plumbing on free CPU hours.
+        # Its numbers show the training path works, not headline quality.
+        "model": "qwen3-0.6b",
+        "epochs": 2,
+        "lora_rank": 8,
+        "learning_rate": "2e-4",
+        "max_train_examples": 400,
+        "max_eval_prompts": 40,
+        "max_new_tokens": 48,
+        # torch 2.9.0 pair that exists as Windows-CPU wheels (open constraints
+        # resolve the newest release to an sdist-only index for CPU).
+        "cpu_torch": "2.9.0",
+        "cpu_torchvision": "0.24.0",
+        "session_note": "4-core CPU - fits the 12h Kaggle wall clock comfortably",
+    },
+}
+
+
+def _cells(tier: dict[str, Any]) -> list[tuple[str, str]]:
+    model = tier["model"]
+    return [
+        (
+            "markdown",
+            f"""# EchoTwin — real-corpus LoRA style transfer (Kaggle {tier['accelerator']})
 
 This notebook runs the **actual EchoTwin pipeline** on a **real, public,
 multi-conversation corpus** and reports measured numbers:
@@ -52,11 +98,26 @@ print("torch", torch.__version__, "cuda", torch.cuda.is_available(),
 print("transformers", transformers.__version__, "peft", peft.__version__)
 """,
     ),
+    *(
+        [
+            (
+                "code",
+                f"""# 2) CPU tier: Kaggle CPU images ship no torch build, and pyproject's open
+#    constraint resolves Windows to an index without CPU wheels - pin the
+#    2.9.0 family from the official CPU wheel index first.
+!pip install -q torch=={tier["cpu_torch"]} torchvision=={tier["cpu_torchvision"]} torchaudio=={tier["cpu_torch"]} --index-url https://download.pytorch.org/whl/cpu
+""",
+            )
+        ]
+        if tier.get("cpu_torch")
+        else []
+    ),
     (
         "code",
         f"""# Install EchoTwin from the PRIVATE dataset mirror (no credential in this file)
 !mkdir -p /kaggle/working/src
 !kaggle datasets download -d {SOURCE_DATASET} -p /kaggle/working/src --unzip --force
+!cd /kaggle/working/src && for z in *.zip; do [ -f "$z" ] && unzip -o "$z"; done; ls /kaggle/working/src
 !pip install -q -e "/kaggle/working/src[voice,train,lang,dev]"
 import echotwin
 print("echotwin", echotwin.__version__, "from", echotwin.__file__)
@@ -72,15 +133,17 @@ print("echotwin", echotwin.__version__, "from", echotwin.__file__)
     ),
     (
         "code",
-        """# 2) Run the experiment: dataset -> conversation split -> LoRA -> evaluation.
-#    Every method sees the SAME held-out prompts.
+        f"""# 2) Run the experiment: dataset -> conversation split -> LoRA -> evaluation.
+#    Every method sees the SAME held-out prompts. ({tier['session_note']})
 !cd /kaggle/working && python scripts/run_style_experiment.py \\
     --corpus sample_corpus/daily_dialog/chats \\
     --out artifacts/experiments/kaggle \\
-    --model qwen3-4b-it-2507 \\
+    --model {model} \\
     --methods base,style_profile,style_rag,ngram,lora,style_rag_ft \\
-    --train-lora --epochs 2 --lora-rank 16 --learning-rate 1e-4 \\
-    --max-train-examples 700 --max-eval-prompts 60 --max-new-tokens 56
+    --train-lora --epochs {tier['epochs']} --lora-rank {tier['lora_rank']} \\
+    --learning-rate {tier['learning_rate']} \\
+    --max-train-examples {tier['max_train_examples']} \\
+    --max-eval-prompts {tier['max_eval_prompts']} --max-new-tokens {tier['max_new_tokens']}
 """,
     ),
     (
@@ -142,9 +205,9 @@ small differences are noise. The report JSON records all of this.
 ]
 
 
-def build_notebook() -> dict:
+def build_notebook(tier: dict[str, Any]) -> dict:
     cells = []
-    for kind, source in CELLS:
+    for kind, source in _cells(tier):
         if kind == "markdown":
             cells.append({"cell_type": "markdown", "metadata": {}, "source": source.splitlines(keepends=True)})
         else:
@@ -162,19 +225,27 @@ def build_notebook() -> dict:
         "metadata": {
             "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
             "language_info": {"name": "python", "version": "3.11"},
-            "kaggle": {
-                "accelerator": "GPU",
-                "enable_gpu": True,
-                "gpu_type": "T4",
-                "isPrivate": True,
-            },
+            "kaggle": _kaggle_meta(tier),
         },
         "nbformat": 4,
         "nbformat_minor": 5,
     }
 
 
-def build_kernel_metadata() -> dict:
+def _kaggle_meta(tier: dict[str, Any]) -> dict[str, Any]:
+    # Kaggle accepts both spellings depending on context; gpu_type only exists
+    # when a GPU is actually enabled, otherwise pushes fail validation.
+    meta: dict[str, Any] = {
+        "accelerator": tier["accelerator"],
+        "enable_gpu": tier["enable_gpu"],
+    }
+    if tier.get("gpu_type"):
+        meta["gpu_type"] = tier["gpu_type"]
+    meta["isPrivate"] = True
+    return meta
+
+
+def build_kernel_metadata(tier: dict[str, Any]) -> dict:
     return {
         "id": KERNEL_ID,
         "title": KERNEL_TITLE,
@@ -182,9 +253,7 @@ def build_kernel_metadata() -> dict:
         "kernel_type": "notebook",
         "language": "python",
         "is_private": True,
-        "enable_gpu": True,
-        "gpu_type": "T4",
-        "accelerator": "GPU",
+        **_kaggle_meta(tier),
         "dataset_sources": [SOURCE_DATASET],
         "competition_sources": [],
         "kernel_sources": [],
@@ -192,12 +261,23 @@ def build_kernel_metadata() -> dict:
 
 
 def main() -> None:
-    out_dir = Path("notebooks/kaggle")
+    ap = argparse.ArgumentParser(description="Generate the Kaggle LoRA kernel notebook.")
+    ap.add_argument(
+        "--accelerator",
+        choices=("gpu", "cpu"),
+        default="gpu",
+        help="gpu = qwen3-4b-it-2507 on T4 (authoritative); cpu = qwen3-0.6b, "
+        "smaller train/eval limits that fit a 12h CPU session. TPU is not "
+        "offered: the pipeline is PyTorch and has no torch_xla port yet.",
+    )
+    args = ap.parse_args()
+    tier = TIERS[args.accelerator]
+    out_dir = REPO_ROOT / "notebooks" / "kaggle"
     out_dir.mkdir(parents=True, exist_ok=True)
     nb_path = out_dir / "echotwin_lora.ipynb"
-    nb_path.write_text(json.dumps(build_notebook(), indent=1), encoding="utf-8")
+    nb_path.write_text(json.dumps(build_notebook(tier), indent=1), encoding="utf-8")
     (out_dir / "kernel-metadata.json").write_text(
-        json.dumps(build_kernel_metadata(), indent=2), encoding="utf-8"
+        json.dumps(build_kernel_metadata(tier), indent=2), encoding="utf-8"
     )
     print(f"wrote {nb_path}")
     print(f"wrote {out_dir / 'kernel-metadata.json'}")

@@ -123,8 +123,10 @@ def _single_take_plan(caps: VoiceBackendCapabilities) -> RecordingPlan:
         rationale="One natural take covers Hinglish, English, numbers, questions, tone and "
         "Hindi sounds; short reference clips can be cut from it afterwards.",
         est_seconds=entry.est_seconds,
-        notes=["Quiet room, same mic distance throughout, natural pace; re-read a sentence "
-               "only if you stumble badly."],
+        notes=[
+            "Quiet room, same mic distance throughout, natural pace; re-read a sentence "
+            "only if you stumble badly."
+        ],
     )
     warnings = []
     if caps.max_reference_seconds and entry.est_seconds > caps.max_reference_seconds:

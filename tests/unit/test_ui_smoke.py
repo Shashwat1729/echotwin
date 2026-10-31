@@ -96,7 +96,7 @@ def test_voice_flow_blocks_synthesis_until_consent(tmp_path):
     voice.do_select_refs(False)
     status = voice.synth_start("hello there", "")
     assert "consent" in status.lower()
-    voice.grant("tester", True)
+    voice.grant(True)
     assert voice.consent_badge().count("granted") >= 1
     voice.revoke()
     assert "not granted" in voice.consent_badge().lower()

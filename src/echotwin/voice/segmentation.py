@@ -32,7 +32,9 @@ class Segment:
         return (self.end - self.start) / sr
 
 
-def _frame_db(x: np.ndarray, sr: int, frame_ms: int = 25, hop_ms: int = 10) -> tuple[np.ndarray, int]:
+def _frame_db(
+    x: np.ndarray, sr: int, frame_ms: int = 25, hop_ms: int = 10
+) -> tuple[np.ndarray, int]:
     frame = max(int(sr * frame_ms / 1000), 1)
     hop = max(int(sr * hop_ms / 1000), 1)
     n = max(1 + (len(x) - frame) // hop, 1)

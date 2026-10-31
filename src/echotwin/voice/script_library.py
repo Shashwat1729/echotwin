@@ -608,19 +608,31 @@ MASTER_TAKE_ID = "he-master-take"
 # exist for: Hinglish code-switching, plain English, numbers, questions, calm
 # and warm tones, emphasis, and the aspirated / retroflex Hindi sounds.
 _MASTER_TAKE_TEXT = (
-    '[warm, friendly]\nHey, main apna naam bol raha hoon, aur ye meri awaaz ka ek lamba sample hai. Bas normal tarike se baat karunga, jaise dost se baat kar raha hoon.' + chr(10) * 2 +
-    '[casual, relaxed]\nAaj subah main jaldi utha, chai banayi, aur phir kaam shuru kiya. Kya tumne woh naya project dekha? Mujhe lagta hai ye kaafi interesting hai, bas thoda time lagega.' + chr(10) * 2 +
-    '[thoughtful, natural pace]\nI think the best way to learn something new is to build it yourself, step by step. Sometimes things break, and that is completely fine. You fix them, you learn, and you move on.' + chr(10) * 2 +
-    '[calm, warm]\nनमस्ते, मैं शाश्वत बोल रहा हूँ। आज मौसम बहुत अच्छा है, और मैं थोड़ी देर बैठकर चाय पीना चाहता हूँ।' + chr(10) * 2 +
-    '[excited]\nअरे, तुम सच में आ रहे हो? यह तो कमाल हो गया! मुझे बहुत खुशी हो रही है!' + chr(10) * 2 +
-    '[reassuring, soft]\nचिंता मत करो, सब ठीक हो जाएगा। मैं तुम्हारे साथ हूँ। Tension mat lo, hum mil ke sambhal lenge.' + chr(10) * 2 +
-    '[annoyed, a little frustrated]\nYaar, maine kitni baar bola tha, phir bhi tumne bataya nahi. This is not okay. मुझे सच में गुस्सा आ रहा है।' + chr(10) * 2 +
-    '[sad, low voice]\nआज मन थोड़ा उदास है, पर कोई बात नहीं। Kal ek naya din hoga, and things will get better.' + chr(10) * 2 +
-    '[whispering]\nDheere bolo, sab so rahe hain. Kal subah baat karte hain, okay?' + chr(10) * 2 +
-    '[laughing, joyful]\nHaha, ye toh kamaal ho gaya! Maza aa gaya yaar, that was honestly the funniest thing today!' + chr(10) * 2 +
-    '[clear, steady]\nAb thoda numbers bolta hoon: ek, do, teen, chaar, paanch, chhe, saat, aath, nau, das. Phir ginti ulti: das, nau, aath, saat, chhe, paanch, chaar, teen, do, ek. एक, दो, तीन, चार, पाँच, छह, सात, आठ, नौ, दस।' + chr(10) * 2 +
-    '[warm, relieved]\nOkay, that is about it for now. Thank you for listening, aur milte hain jaldi. Bye!'
+    "[warm, friendly]\nHey, main apna naam bol raha hoon, aur ye meri awaaz ka ek lamba sample hai. Bas normal tarike se baat karunga, jaise dost se baat kar raha hoon."
+    + chr(10) * 2
+    + "[casual, relaxed]\nAaj subah main jaldi utha, chai banayi, aur phir kaam shuru kiya. Kya tumne woh naya project dekha? Mujhe lagta hai ye kaafi interesting hai, bas thoda time lagega."
+    + chr(10) * 2
+    + "[thoughtful, natural pace]\nI think the best way to learn something new is to build it yourself, step by step. Sometimes things break, and that is completely fine. You fix them, you learn, and you move on."
+    + chr(10) * 2
+    + "[calm, warm]\nनमस्ते, मैं शाश्वत बोल रहा हूँ। आज मौसम बहुत अच्छा है, और मैं थोड़ी देर बैठकर चाय पीना चाहता हूँ।"
+    + chr(10) * 2
+    + "[excited]\nअरे, तुम सच में आ रहे हो? यह तो कमाल हो गया! मुझे बहुत खुशी हो रही है!"
+    + chr(10) * 2
+    + "[reassuring, soft]\nचिंता मत करो, सब ठीक हो जाएगा। मैं तुम्हारे साथ हूँ। Tension mat lo, hum mil ke sambhal lenge."
+    + chr(10) * 2
+    + "[annoyed, a little frustrated]\nYaar, maine kitni baar bola tha, phir bhi tumne bataya nahi. This is not okay. मुझे सच में गुस्सा आ रहा है।"
+    + chr(10) * 2
+    + "[sad, low voice]\nआज मन थोड़ा उदास है, पर कोई बात नहीं। Kal ek naya din hoga, and things will get better."
+    + chr(10) * 2
+    + "[whispering]\nDheere bolo, sab so rahe hain. Kal subah baat karte hain, okay?"
+    + chr(10) * 2
+    + "[laughing, joyful]\nHaha, ye toh kamaal ho gaya! Maza aa gaya yaar, that was honestly the funniest thing today!"
+    + chr(10) * 2
+    + "[clear, steady]\nAb thoda numbers bolta hoon: ek, do, teen, chaar, paanch, chhe, saat, aath, nau, das. Phir ginti ulti: das, nau, aath, saat, chhe, paanch, chaar, teen, do, ek. एक, दो, तीन, चार, पाँच, छह, सात, आठ, नौ, दस।"
+    + chr(10) * 2
+    + "[warm, relieved]\nOkay, that is about it for now. Thank you for listening, aur milte hain jaldi. Bye!"
 )
+
 
 def _load_personal_master() -> str | None:
     """Personalised master script built from your own messages (private, git-ignored).
@@ -641,8 +653,13 @@ _PERSONAL_MASTER = _load_personal_master()
 
 def _spoken_seconds(text: str) -> float:
     """Bracketed mood cues like ``[excited]`` are instructions, not spoken words."""
-    spoken = [ln for ln in text.splitlines() if ln.strip() and not (ln.startswith("[") and ln.endswith("]"))]
+    spoken = [
+        ln
+        for ln in text.splitlines()
+        if ln.strip() and not (ln.startswith("[") and ln.endswith("]"))
+    ]
     return round(sum(len(ln.split()) for ln in spoken) / 2.6, 1)
+
 
 _MASTER_TAKE = ScriptEntry(
     id=MASTER_TAKE_ID,

@@ -167,7 +167,13 @@ def format_for_sft(
 
     boundary: int | None
     if train_on_last_only:
-        prompt = _render_template(tokenizer, messages[:-1], add_generation_prompt=True)
+        # A context-free example (conversation opener) has no prompt turns; most chat
+        # templates reject an empty message list, so fall through to span search.
+        prompt = (
+            _render_template(tokenizer, messages[:-1], add_generation_prompt=True)
+            if len(messages) > 1
+            else ""
+        )
         prompt_ids = list(tokenizer(prompt, add_special_tokens=False)["input_ids"])
         if prompt_ids and full_ids[: len(prompt_ids)] == prompt_ids:
             boundary = len(prompt_ids)
@@ -273,23 +279,29 @@ def _encode_split(
 
 
 def _training_args_compat(**kwargs):
-    """Create TrainingArguments tolerating v4->v5 kwarg renames."""
+    """Create TrainingArguments tolerating v4->v5 kwarg renames.
+
+    Known renames are applied one at a time, driven by the error message, so an
+    unrelated unknown argument still fails loudly instead of being dropped.
+    """
     from transformers import TrainingArguments
 
-    try:
-        return TrainingArguments(**kwargs)
-    except TypeError:  # older/newer transformers rename
-        adjusted = dict(kwargs)
-        if "eval_strategy" in adjusted:
-            adjusted.pop("eval_strategy")
-            adjusted["evaluation_strategy"] = adjusted.get("evaluation_strategy", "no")
-        if "evaluation_strategy" in adjusted:
-            adjusted.pop("evaluation_strategy")
-            adjusted.setdefault("eval_strategy", "no")
+    renames = {
+        "eval_strategy": "evaluation_strategy",
+        "evaluation_strategy": "eval_strategy",
+        # transformers 5 removed warmup_ratio; warmup_steps < 1 is read as a ratio.
+        "warmup_ratio": "warmup_steps",
+    }
+    args = dict(kwargs)
+    for _ in range(len(renames) + 1):
         try:
-            return TrainingArguments(**adjusted)
-        except TypeError as e2:
-            raise TrainingError(f"Incompatible transformers TrainingArguments: {e2}") from e2
+            return TrainingArguments(**args)
+        except TypeError as e:
+            bad = next((k for k in renames if f"'{k}'" in str(e) and k in args), None)
+            if bad is None:
+                raise TrainingError(f"Incompatible transformers TrainingArguments: {e}") from e
+            args[renames[bad]] = args.pop(bad)
+    raise TrainingError("Incompatible transformers TrainingArguments: rename loop did not converge")
 
 
 def run_sft(
@@ -325,6 +337,9 @@ def run_sft(
             tokenizer.pad_token = tokenizer.eos_token
 
         if cfg.method in {"lora", "qlora"}:
+            if cfg.gradient_checkpointing and hasattr(model, "enable_input_require_grads"):
+                # Checkpointed LoRA needs the embedding output to require grad.
+                model.enable_input_require_grads()
             model, targets = apply_lora(model, tokenizer, cfg.lora)
             record.metrics["lora_target_modules"] = targets[:8]
 
@@ -345,6 +360,13 @@ def run_sft(
         )
 
         has_eval = bool(val_enc)
+        eval_every = cfg.eval_steps or max(25, cfg.logging_steps * 5)
+        save_every = (
+            cfg.save_steps if cfg.save_steps is not None else max(50, cfg.logging_steps * 10)
+        )
+        if has_eval:
+            # load_best_model_at_end needs save_steps to be a round multiple of eval_steps.
+            save_every = max(eval_every, round(save_every / eval_every) * eval_every)
         args_kwargs = dict(
             output_dir=str(out_dir),
             num_train_epochs=cfg.epochs,
@@ -356,22 +378,23 @@ def run_sft(
             lr_scheduler_type=cfg.lr_scheduler,
             weight_decay=cfg.weight_decay,
             logging_steps=cfg.logging_steps,
-            save_steps=cfg.save_steps
-            if cfg.save_steps is not None
-            else max(50, cfg.logging_steps * 10),
+            save_steps=save_every,
             save_total_limit=cfg.save_total_limit,
             seed=cfg.seed,
             fp16=cfg.fp16,
             bf16=cfg.bf16,
             report_to=cfg.report_to,
             gradient_checkpointing=cfg.gradient_checkpointing,
+            gradient_checkpointing_kwargs={"use_reentrant": False}
+            if cfg.gradient_checkpointing
+            else None,
             remove_unused_columns=False,
             # Best-checkpoint selection REQUIRES an eval strategy. Gating it on
             # `cfg.eval_steps` (which defaults to None) produced
             # eval_strategy="no" together with load_best_model_at_end=True,
             # which transformers rejects with a ValueError.
             eval_strategy="steps" if has_eval else "no",
-            eval_steps=cfg.eval_steps or max(25, cfg.logging_steps * 5),
+            eval_steps=eval_every,
             load_best_model_at_end=bool(has_eval),
             metric_for_best_model="eval_loss" if has_eval else None,
             greater_is_better=False if has_eval else None,

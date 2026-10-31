@@ -15,7 +15,7 @@ from ..services import jobs
 from ..settings import get_settings
 from . import render
 from .context import PageContext, rail_value
-from .pages import chat, dataset, evaluate, home, import_, profile, settings, voice
+from .pages import chat, dataset, evaluate, home, import_, profile, settings, talk, voice
 from .theme import CSS, build_theme
 
 APP_TITLE = "EchoTwin Studio"
@@ -26,6 +26,7 @@ _PAGES = (
     ("Dataset", "dataset", dataset),
     ("Profile", "profile", profile),
     ("Evaluate", "evaluate", evaluate),
+    ("Talk", "talk", talk),
     ("Chat", "chat", chat),
     ("Voice", "voice", voice),
     ("Settings", "settings", settings),

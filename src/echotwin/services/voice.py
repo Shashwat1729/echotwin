@@ -138,7 +138,10 @@ def _save_long_take(target: Path, clip, language: str, script_id: str) -> Record
         elif report.verdict == "warning" and worst == "ok":
             worst = "warning"
         note = (
-            {"verdict": "unverified", "note": "Aligned from the known script by speech-time proportion; not ASR-verified."}
+            {
+                "verdict": "unverified",
+                "note": "Aligned from the known script by speech-time proportion; not ASR-verified.",
+            }
             if text
             else None
         )
@@ -168,6 +171,22 @@ def _save_long_take(target: Path, clip, language: str, script_id: str) -> Record
     )
 
 
+def _auto_transcript(path: Path, language: str) -> tuple[str | None, dict | None]:
+    """Best-effort ASR for uploads without a script; silently skipped when unavailable."""
+    from ..voice.transcription import transcribe
+
+    try:
+        text = transcribe(path, None if language in ("", "hinglish", "mixed") else language[:2])
+    except Exception:
+        return None, None
+    if not text:
+        return None, None
+    return text, {
+        "verdict": "asr",
+        "note": "Transcribed automatically (faster-whisper); not hand-checked.",
+    }
+
+
 def save_recording(path: str | Path, language: str, script_id: str = "") -> RecordingResult:
     """Copy a recording into the workspace, validate and score it, add it to the profile."""
     src = Path(path)
@@ -183,10 +202,14 @@ def save_recording(path: str | Path, language: str, script_id: str = "") -> Reco
     except Exception:
         target.unlink(missing_ok=True)
         raise
+    transcript, check = _auto_transcript(target, language) if not script_id else (None, None)
     prof = current_profile() or VoiceProfile()
     prof.recordings.append(
         RecordingEntry(
             recording_id=target.stem,
+            has_transcript=bool(transcript),
+            transcript=transcript,
+            transcript_check=check,
             path=str(target),
             language=language,
             script_id=script_id or None,

@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Dates are UTC.
 
 ### Added
 
+- Talk tab: converse with a persona built from pasted text or chats, with spoken replies; auto-transcription of uploaded voice; one-tick voice acknowledgement (no name/signing).
+- Training: fixes for transformers 5 (`warmup_ratio`), eval/save step alignment, context-free examples, gradient checkpointing.
 - Single-take voice recording: long takes are peak-normalised, split at pauses and given script-aligned transcripts.
 - Personalised multilingual master script built from the user's own messages (`scripts/build_personal_script.py`).
 - WhatsApp `msgstore.db` text exporter and a sanitised private Kaggle dataset builder; `personal` Kaggle tier with consent-gated VoxCPM cloning.

@@ -48,13 +48,27 @@ def plan_view(
         plan = voice_service.plan(backend, languages or LANGUAGES, minutes, single_take)
     except EchoTwinError as exc:
         return pd.DataFrame(
-            [{"Task": f"Cannot build a plan: {exc}", "Language": "-", "Category": "-",
-              "Seconds": 0, "Required": "-"}]
+            [
+                {
+                    "Task": f"Cannot build a plan: {exc}",
+                    "Language": "-",
+                    "Category": "-",
+                    "Seconds": 0,
+                    "Required": "-",
+                }
+            ]
         )
     except Exception as exc:
         return pd.DataFrame(
-            [{"Task": f"Cannot build a plan: {type(exc).__name__}: {exc}",
-              "Language": "-", "Category": "-", "Seconds": 0, "Required": "-"}]
+            [
+                {
+                    "Task": f"Cannot build a plan: {type(exc).__name__}: {exc}",
+                    "Language": "-",
+                    "Category": "-",
+                    "Seconds": 0,
+                    "Required": "-",
+                }
+            ]
         )
     rows = [
         {
@@ -74,9 +88,7 @@ def script_choices(language: str, show_all: bool = False) -> list[str]:
     master = script_library.MASTER_TAKE_ID
     if not show_all:
         return [master]
-    return [master] + [
-        s.id for s in script_library.scripts_by_language(language) if s.id != master
-    ]
+    return [master] + [s.id for s in script_library.scripts_by_language(language) if s.id != master]
 
 
 def show_script(script_id: str | None) -> str:
@@ -139,10 +151,10 @@ def do_select_refs(prefer_transcript: bool) -> str:
     return render.callout("ok", f"Selected: {ids}. {decision.rationale}".strip())
 
 
-def grant(name: str, confirm: bool):
+def grant(confirm: bool):
     if not confirm:
         return consent_badge(), render.callout("warn", "Tick the box to confirm consent.")
-    voice_service.grant_consent(name or "")
+    voice_service.grant_consent()
     return consent_badge(), ""
 
 
@@ -187,8 +199,8 @@ def synth_poll():
 
 def build(ctx: PageContext) -> None:
     gr.Markdown(
-        "Voice cloning is optional and needs a reference voice backend. Only clone a voice you "
-        "have the right to use."
+        "Upload or record any clear voice (a script is optional; speech is auto-transcribed). "
+        "Only recreate a voice you are entitled to, and label AI speech as AI."
     )
     backends = registered_backends()
     with gr.Accordion("1. Recording plan", open=False):
@@ -241,12 +253,14 @@ def build(ctx: PageContext) -> None:
     gr.Markdown("### 4. Consent and synthesis")
     consent = gr.HTML(consent_badge())
     with gr.Row():
-        who = gr.Textbox(label="Your name", scale=2)
-        confirm = gr.Checkbox(label="This is my voice, or I have permission to clone it", scale=3)
+        confirm = gr.Checkbox(
+            label="This is my voice, or I am entitled to recreate it. I won't use it to deceive anyone.",
+            scale=5,
+        )
         grant_btn = gr.Button("Grant consent")
         revoke_btn = gr.Button("Revoke")
     consent_status = gr.HTML()
-    grant_btn.click(grant, [who, confirm], [consent, consent_status])
+    grant_btn.click(grant, confirm, [consent, consent_status])
     revoke_btn.click(revoke, outputs=consent)
     with gr.Row():
         text = gr.Textbox(label="Text to speak", scale=4)

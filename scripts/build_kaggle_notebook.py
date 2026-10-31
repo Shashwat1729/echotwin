@@ -47,11 +47,11 @@ TIERS: dict[str, dict[str, Any]] = {
         "accelerator": "GPU",
         "gpu_type": "T4",
         "enable_gpu": True,
-        "model": "qwen3-4b-it-2507",
+        "model": "qwen3-1.7b",
         "epochs": 2,
         "lora_rank": 16,
         "learning_rate": "1e-4",
-        "max_train_examples": 3000,
+        "max_train_examples": 2000,
         "max_eval_prompts": 100,
         "max_new_tokens": 56,
         "cpu_torch": None,
@@ -111,8 +111,12 @@ it is not a claim about any specific person.
     ),
     (
         "code",
-        """!pip install -q --upgrade "transformers>=5.0" "peft>=0.21" "trl>=0.15" \\
-    "numpy<3" accelerate datasets huggingface_hub pyarrow soundfile scipy pandas pytest
+        """import importlib.metadata as _md
+# Pin the already-imported numpy/pandas: upgrading them under a live kernel breaks the ABI.
+open("/tmp/pins.txt", "w").write("\\n".join(f"{n}=={_md.version(n)}" for n in ("numpy", "pandas")))
+!pip install -q -c /tmp/pins.txt --upgrade "transformers>=5.0" "peft>=0.21" "trl>=0.15" \\
+    accelerate datasets huggingface_hub pyarrow soundfile scipy pandas pytest
+!pip uninstall -y -q torchao  # preinstalled 0.10 is rejected by peft; unused here
 import torch, transformers, peft
 print("torch", torch.__version__, "cuda", torch.cuda.is_available(),
       torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu")
@@ -139,39 +143,34 @@ print("transformers", transformers.__version__, "peft", peft.__version__)
 !mkdir -p /kaggle/working/src
 !kaggle datasets download -d {SOURCE_DATASET} -p /kaggle/working/src --unzip --force
 !cd /kaggle/working/src && for z in *.zip; do [ -f "$z" ] && unzip -o "$z"; done; ls /kaggle/working/src
-!pip install -q -e "/kaggle/working/src[voice,train,lang,dev]"
+!pip install -q --ignore-requires-python -c /tmp/pins.txt -e "/kaggle/working/src[voice,train,lang,dev]"
+import sys; sys.path.insert(0, "/kaggle/working/src/src")  # .pth files are read at startup only
 import echotwin
 print("echotwin", echotwin.__version__, "from", echotwin.__file__)
 """,
     ),
-    *(
-        [
     (
-                "code",
-                """# 1) PERSONAL corpus: your own PII-redacted, anonymised chats (private dataset)
-        !mkdir -p /kaggle/working/personal_chats && cp /kaggle/input/echotwin-personal/chats/*_chat.txt /kaggle/working/personal_chats/
+        "code",
+        ""
+        + (
+            """# 1) PERSONAL: your own PII-redacted, anonymised chats (private dataset)
+!mkdir -p /kaggle/working/personal_chats && cp /kaggle/input/echotwin-personal/chats/*_chat.txt /kaggle/working/personal_chats/
 !ls /kaggle/working/personal_chats | wc -l
-        !ls /kaggle/input/echotwin-personal/voice | head -3
-        """,
-            ),
-        ]
-        if tier.get("personal")
-        else [
-    (
-                "code",
-                """# 1) Fetch a REAL multi-conversation chat corpus (DailyDialog mirror) and
-        #    convert it to WhatsApp-style exports that the production importer reads.
-        !cd /kaggle/working && python scripts/fetch_public_corpus.py --max-conversations 600
-        !ls /kaggle/working/sample_corpus/daily_dialog/chats | head -3
-        """,
-            ),
-        ]
+!ls /kaggle/input/echotwin-personal/voice | head -3
+"""
+            if personal
+            else """# 1) Fetch a REAL multi-conversation chat corpus (DailyDialog mirror) and
+# convert it to WhatsApp-style exports that the production importer reads.
+!cd /kaggle/working && python src/scripts/fetch_public_corpus.py --max-conversations 600
+!ls /kaggle/working/sample_corpus/daily_dialog/chats | head -3
+"""
+        ),
     ),
     (
         "code",
         f"""# 2) Run the experiment: dataset -> conversation split -> LoRA -> evaluation.
 #    Every method sees the SAME held-out prompts. ({tier['session_note']})
-!cd /kaggle/working && python scripts/run_style_experiment.py \\
+!cd /kaggle/working && python src/scripts/run_style_experiment.py \\
     --corpus {corpus} {author} \\
     --out artifacts/experiments/kaggle \\
     --model {model} \\
@@ -221,7 +220,7 @@ consent = vin / "voice_consent.json"
 if not consent.exists():
     print("SKIPPED: no voice_consent.json in the dataset - voice consent has not been granted.")
 else:
-    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "voxcpm", "soundfile"], check=True)
+    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--ignore-requires-python", "voxcpm", "soundfile"], check=True)
     from voxcpm import VoxCPM
     import soundfile as sf
     manifest = json.loads((vin / "voice" / "manifest.json").read_text(encoding="utf-8"))

@@ -93,9 +93,7 @@ def load_corpus(corpus_dir: str | Path) -> tuple[list, dict]:
     corpus_info = {
         "n_conversations": len(conversations),
         "n_messages": len(messages),
-        "participants": [
-            {"name": s.sender_name, "messages": s.message_count} for s in stats[:6]
-        ],
+        "participants": [{"name": s.sender_name, "messages": s.message_count} for s in stats[:6]],
     }
     return messages, corpus_info
 
@@ -142,9 +140,7 @@ def run_experiment(
         target,
         DatasetConfig(context_messages=4, max_context_chars=900, max_target_chars=400),
     )
-    split = split_dataset(
-        built, SplitConfig(test_fraction=0.15, val_fraction=0.1, seed=seed)
-    )
+    split = split_dataset(built, SplitConfig(test_fraction=0.15, val_fraction=0.1, seed=seed))
     if max_train_examples and len(split.train) > max_train_examples:
         # Keep the split intact; subsample the training set only.
         split.train = split.train[:max_train_examples]
@@ -152,9 +148,7 @@ def run_experiment(
     skipped_context_free = count_context_free(split.test)
     index = build_index_from_examples(split.train)
     train_texts = [ex.messages[-1].content for ex in split.train]
-    prompt_texts = [
-        " ".join(str(t.get("content", "")) for t in p["messages"]) for p in prompts
-    ]
+    prompt_texts = [" ".join(str(t.get("content", "")) for t in p["messages"]) for p in prompts]
 
     report = ExperimentReport(
         experiment_id=f"exp-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}",
@@ -203,6 +197,7 @@ def run_experiment(
                 learning_rate=learning_rate,
                 lora=LoRAConfig(r=lora_rank, alpha=lora_rank * 2),
                 seq_len=384,
+                gradient_checkpointing=True,
                 gradient_accumulation_steps=4,
                 batch_size=1,
                 logging_steps=5,
@@ -223,9 +218,7 @@ def run_experiment(
     # --- evaluate each method on identical prompts ------------------------
     from .models.generation import GeneratorConfig, MockGenerator
 
-    gen_cfg = GeneratorConfig(
-        max_new_tokens=max_new_tokens, temperature=temperature, seed=seed
-    )
+    gen_cfg = GeneratorConfig(max_new_tokens=max_new_tokens, temperature=temperature, seed=seed)
     for method in methods:
         # The evaluation service calls the un-conditioned baseline "plain"; the
         # n-gram engine also applies its own persona, so it uses the same
@@ -243,9 +236,7 @@ def run_experiment(
             spec = get_model_spec(model)
             # A LoadedModel has no .generate(); the chat-imitation wrapper is
             # the same inference path training-adjacent code uses elsewhere.
-            g = TransformersGenerator(
-                load_model_with_adapter(spec, adapter), spec
-            )
+            g = TransformersGenerator(load_model_with_adapter(spec, adapter), spec)
             rev = f"{model}+lora:{adapter.name}"
         elif method == "ngram":
             from .models.ngram import NGramGenerator, NGramModel
@@ -254,7 +245,9 @@ def run_experiment(
             ngram_model.train_texts(train_texts)
             g = NGramGenerator(ngram_model, seed=seed)
             rev = f"ngram(order={getattr(ngram_model, 'order', 3)})"
-        elif method in {"base", "plain", "style_profile", "style_rag", "style_rag_ft"} and g is None:
+        elif (
+            method in {"base", "plain", "style_profile", "style_rag", "style_rag_ft"} and g is None
+        ):
             g = MockGenerator(train_texts[:5], seed=seed)
             rev = "mock-1"
         assert g is not None, f"method {method} has no generator"

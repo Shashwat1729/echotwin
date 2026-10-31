@@ -221,3 +221,34 @@ class TestTrainingConfig:
         cfg = TrainingConfig(output_dir="x", method="lora")
         blob = cfg.model_dump_json()
         assert '"lr_scheduler"' in blob
+
+
+def test_context_free_example_does_not_render_empty_prompt():
+    """Conversation openers have no prompt turns; strict templates reject [] (seen on Qwen)."""
+
+    class Strict(WordTokenizer):
+        def apply_chat_template(self, messages, **kwargs):
+            if not messages:
+                raise ValueError("Cannot apply chat template to an empty conversation.")
+            return super().apply_chat_template(messages, **kwargs)
+
+    enc = format_for_sft(Strict(), [{"role": "assistant", "content": "haan yaar milte hain"}], 512)
+    assert enc["trainable_tokens"] == len(_word_ids("haan yaar milte hain"))
+
+
+def test_training_args_compat_renames_warmup_ratio(monkeypatch):
+    import sys
+    import types
+
+    from echotwin.training.sft import _training_args_compat
+
+    class V5Args:
+        def __init__(self, **kw):
+            if "warmup_ratio" in kw:
+                raise TypeError("__init__() got an unexpected keyword argument 'warmup_ratio'")
+            self.kw = kw
+
+    fake = types.SimpleNamespace(TrainingArguments=V5Args)
+    monkeypatch.setitem(sys.modules, "transformers", fake)
+    out = _training_args_compat(warmup_ratio=0.05, learning_rate=1e-4)
+    assert out.kw == {"warmup_steps": 0.05, "learning_rate": 1e-4}

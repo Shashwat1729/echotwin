@@ -24,9 +24,9 @@ SCOPE_VOICE = "voice_cloning"
 KNOWN_SCOPES = (SCOPE_WHATSAPP, SCOPE_VOICE)
 
 VOICE_CONSENT_STATEMENT = (
-    "I confirm that the voice I am cloning is my own, or that I am explicitly "
-    "authorized by the speaker to clone it, and that any generated speech will be "
-    "disclosed as AI-generated when shared."
+    "This is my own voice, or I am entitled to recreate it (for example a relative's, "
+    "with their family's permission). I will not use it to deceive anyone and will say "
+    "when speech is AI-generated."
 )
 
 
@@ -44,9 +44,7 @@ def _check_scope(scope: str) -> str:
     nothing ever checks, giving a false sense of coverage.
     """
     if scope not in KNOWN_SCOPES:
-        raise ValueError(
-            f"Unknown consent scope {scope!r}; known scopes: {list(KNOWN_SCOPES)}"
-        )
+        raise ValueError(f"Unknown consent scope {scope!r}; known scopes: {list(KNOWN_SCOPES)}")
     return scope
 
 

@@ -17,8 +17,10 @@ SR = 16000
 
 def _speech(seconds: float, rng: np.random.Generator) -> np.ndarray:
     t = np.arange(int(seconds * SR)) / SR
-    return (0.3 * np.sin(2 * np.pi * 180 * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 3 * t))
-            + 0.01 * rng.standard_normal(len(t))).astype(np.float32)
+    return (
+        0.3 * np.sin(2 * np.pi * 180 * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 3 * t))
+        + 0.01 * rng.standard_normal(len(t))
+    ).astype(np.float32)
 
 
 def _take(chunks: list[float], pause: float = 0.5) -> np.ndarray:

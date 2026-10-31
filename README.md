@@ -1,9 +1,9 @@
 # EchoTwin
 
-Local-first, privacy-preserving toolkit that learns a **consenting person's**
-writing style from their own WhatsApp history, fine-tunes and evaluates a
-small language model, and generates speech through **authorized** voice
-cloning — with Hindi, English, and Hinglish support.
+Local-first toolkit to **talk to a person**: it learns how someone writes (from
+chats or pasted transcripts), fine-tunes a small language model with LoRA, and
+replies in their **voice** from a short uploaded recording. Hindi, English and
+Hinglish are supported. Replies are AI-generated imitations, never the real person.
 
 > **Status:** v0.1.0 development release. Every capability below is backed by
 > working code and tests (`pytest -q`, `ruff`, `mypy` all green). Anything
@@ -28,6 +28,9 @@ cloning — with Hindi, English, and Hinglish support.
 - **Modern small models** — Qwen3 family default (`qwen3-4b-it-2507`,
   Apache-2.0, non-thinking), with thinking-mode handling and vendor sampling
   recipes; LoRA/QLoRA training with verified target masking.
+- **Talk tab** - paste text/transcripts (or import chats), optionally upload a
+  voice, then converse by typing or speaking; replies come back as text and audio.
+  No script is needed: uploaded speech is transcribed automatically (faster-whisper).
 - **Bilingual voice studio** — 55 real Hindi/English/Hinglish recording
   scripts, adaptive plans, quality + transcript + coverage analysis,
   reference selection, consent-gated synthesis with provenance.
@@ -37,7 +40,7 @@ cloning — with Hindi, English, and Hinglish support.
   built-in n-gram engine and can use a local model or OpenAI-compatible
   server when available.
 
-Using your own chats and voice: see [docs/personal-workflow.md](docs/personal-workflow.md).
+Using your own chats and voice: see [docs/personal-workflow.md](docs/personal-workflow.md). Who and what you may recreate: [docs/responsible-use.md](docs/responsible-use.md).
 
 ## Quickstart
 

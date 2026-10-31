@@ -41,6 +41,10 @@ class RecordingPreferences(BaseModel):
     script_preference: str = Field(default="auto", description="auto | devanagari | latin")
     accent_note: str | None = None
     max_minutes: float = 20.0
+    single_take: bool = Field(
+        default=False,
+        description="Plan exactly one long continuous recording (the master script).",
+    )
 
 
 class InventoryItem(BaseModel):
@@ -103,6 +107,43 @@ def _pick_scripts(language: str, categories: list[str], limit: int) -> list[Scri
     return out
 
 
+def _single_take_plan(caps: VoiceBackendCapabilities) -> RecordingPlan:
+    """One long continuous recording instead of dozens of short ones."""
+    from .script_library import MASTER_TAKE_ID, get_script
+
+    entry = get_script(MASTER_TAKE_ID)
+    task = RecordingTask(
+        id="single-take",
+        language="hinglish",
+        category="master_take",
+        title="Read the master script in one continuous take",
+        script_ids=[entry.id],
+        priority=0,
+        mandatory=True,
+        rationale="One natural take covers Hinglish, English, numbers, questions, tone and "
+        "Hindi sounds; short reference clips can be cut from it afterwards.",
+        est_seconds=entry.est_seconds,
+        notes=["Quiet room, same mic distance throughout, natural pace; re-read a sentence "
+               "only if you stumble badly."],
+    )
+    warnings = []
+    if caps.max_reference_seconds and entry.est_seconds > caps.max_reference_seconds:
+        warnings.append(
+            f"Master take (~{entry.est_seconds:.0f}s) exceeds the backend's "
+            f"{caps.max_reference_seconds:.0f}s reference limit; clips will be cut from it."
+        )
+    return RecordingPlan(
+        backend=caps.name,
+        backend_capabilities=caps.public_dict(),
+        tasks=[task],
+        total_estimated_seconds=entry.est_seconds,
+        within_time_budget_seconds=entry.est_seconds,
+        backend_minimum_met=False,
+        recommendations=["Record the single master take, then run analysis."],
+        warnings=warnings,
+    )
+
+
 def generate_plan(
     capabilities: VoiceBackendCapabilities | dict,
     prefs: RecordingPreferences,
@@ -114,6 +155,8 @@ def generate_plan(
         if isinstance(capabilities, VoiceBackendCapabilities)
         else VoiceBackendCapabilities(**capabilities)
     )
+    if prefs.single_take:
+        return _single_take_plan(caps)
     warnings: list[str] = []
     skipped: list[dict] = []
     tasks: list[RecordingTask] = []

@@ -10,7 +10,8 @@
   "gpu_type": "T4",
   "isPrivate": true,
   "dataset_sources": [
-    "shashwat1729/echotwin-source"
+    "shashwat1729/echotwin-source",
+    "shashwat1729/echotwin-personal"
   ],
   "competition_sources": [],
   "kernel_sources": []

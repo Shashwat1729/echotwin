@@ -20,6 +20,7 @@ KERNEL_ID = "shashwat1729/echotwin-lora-style-transfer"
 # KERNEL_ID's slug or the push is rejected.
 KERNEL_TITLE = "Echotwin Lora Style Transfer"
 SOURCE_DATASET = "shashwat1729/echotwin-source"
+PERSONAL_DATASET = "shashwat1729/echotwin-personal"
 
 # TPU is deliberately NOT a tier: the whole training/eval stack is PyTorch;
 # a TPU kernel needs torch_xla end to end (optimizer + generation loop), which
@@ -40,6 +41,23 @@ TIERS: dict[str, dict[str, Any]] = {
         "cpu_torch": None,
         "cpu_torchvision": None,
         "session_note": "T4 GPU (the authoritative run; ~30 GPU-hours/week quota)",
+    },
+    "personal": {
+        # Your own chats + voice from the PRIVATE echotwin-personal dataset.
+        "accelerator": "GPU",
+        "gpu_type": "T4",
+        "enable_gpu": True,
+        "model": "qwen3-4b-it-2507",
+        "epochs": 2,
+        "lora_rank": 16,
+        "learning_rate": "1e-4",
+        "max_train_examples": 3000,
+        "max_eval_prompts": 100,
+        "max_new_tokens": 56,
+        "cpu_torch": None,
+        "cpu_torchvision": None,
+        "personal": True,
+        "session_note": "T4 GPU, your private chats; adapter + voice samples saved to /kaggle/working",
     },
     "cpu": {
         "accelerator": "CPU",
@@ -65,6 +83,9 @@ TIERS: dict[str, dict[str, Any]] = {
 
 def _cells(tier: dict[str, Any]) -> list[tuple[str, str]]:
     model = tier["model"]
+    personal = bool(tier.get("personal"))
+    corpus = "personal_chats" if personal else "sample_corpus/daily_dialog/chats"
+    author = '--author "Me"' if personal else ""
     return [
         (
             "markdown",
@@ -123,20 +144,35 @@ import echotwin
 print("echotwin", echotwin.__version__, "from", echotwin.__file__)
 """,
     ),
+    *(
+        [
     (
-        "code",
-        """# 1) Fetch a REAL multi-conversation chat corpus (DailyDialog mirror) and
-#    convert it to WhatsApp-style exports that the production importer reads.
-!cd /kaggle/working && python scripts/fetch_public_corpus.py --max-conversations 600
-!ls /kaggle/working/sample_corpus/daily_dialog/chats | head -3
-""",
+                "code",
+                """# 1) PERSONAL corpus: your own PII-redacted, anonymised chats (private dataset)
+        !mkdir -p /kaggle/working/personal_chats && cp /kaggle/input/echotwin-personal/chats/*_chat.txt /kaggle/working/personal_chats/
+!ls /kaggle/working/personal_chats | wc -l
+        !ls /kaggle/input/echotwin-personal/voice | head -3
+        """,
+            ),
+        ]
+        if tier.get("personal")
+        else [
+    (
+                "code",
+                """# 1) Fetch a REAL multi-conversation chat corpus (DailyDialog mirror) and
+        #    convert it to WhatsApp-style exports that the production importer reads.
+        !cd /kaggle/working && python scripts/fetch_public_corpus.py --max-conversations 600
+        !ls /kaggle/working/sample_corpus/daily_dialog/chats | head -3
+        """,
+            ),
+        ]
     ),
     (
         "code",
         f"""# 2) Run the experiment: dataset -> conversation split -> LoRA -> evaluation.
 #    Every method sees the SAME held-out prompts. ({tier['session_note']})
 !cd /kaggle/working && python scripts/run_style_experiment.py \\
-    --corpus sample_corpus/daily_dialog/chats \\
+    --corpus {corpus} {author} \\
     --out artifacts/experiments/kaggle \\
     --model {model} \\
     --methods base,style_profile,style_rag,ngram,lora,style_rag_ft \\
@@ -172,6 +208,47 @@ for name in ("plain", "style_rag", "lora"):
         print("  model :", (r.get("generated") or "")[:100])
         print("  human :", (r.get("reference") or "")[:100])
 """,
+    ),
+    *(
+        [
+            (
+                "code",
+                """# 5) VOICE CLONING (VoxCPM). Runs only if voice consent was recorded in the
+#    dataset (granted by the speaker in the EchoTwin studio) - otherwise skipped.
+import json, pathlib, shutil, subprocess, sys
+vin = pathlib.Path("/kaggle/input/echotwin-personal")
+consent = vin / "voice_consent.json"
+if not consent.exists():
+    print("SKIPPED: no voice_consent.json in the dataset - voice consent has not been granted.")
+else:
+    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "voxcpm", "soundfile"], check=True)
+    from voxcpm import VoxCPM
+    import soundfile as sf
+    manifest = json.loads((vin / "voice" / "manifest.json").read_text(encoding="utf-8"))
+    # reference: the clip closest to 12 s that has a script-aligned transcript
+    ref = min((m for m in manifest if m["transcript"]), key=lambda m: abs(m["seconds"] - 12))
+    ref_path = str(vin / "voice" / ref["file"])
+    model = VoxCPM.from_pretrained("openbmb/VoxCPM2", load_denoiser=False)
+    out = pathlib.Path("/kaggle/working/voice_out"); out.mkdir(exist_ok=True)
+    tests = {
+        "hinglish": "Yaar kal milte hain, main ek naya idea lekar aa raha hoon, tum bas time pe aa jaana.",
+        "english": "This is a short test of my cloned voice, speaking in a calm and natural way.",
+        "hindi": "नमस्ते, यह मेरी आवाज़ का एक छोटा सा परीक्षण है।",
+    }
+    for name, text in tests.items():
+        for mode in ("reference", "continuation"):
+            kw = {"text": text, "reference_wav_path": ref_path}
+            if mode == "continuation":
+                kw.update(prompt_wav_path=ref_path, prompt_text=ref["transcript"])
+            wav = model.generate(**kw)
+            sf.write(str(out / f"{name}_{mode}.wav"), wav, model.tts_model.sample_rate)
+            print("wrote", f"{name}_{mode}.wav")
+    shutil.copy(ref_path, out / "reference_used.wav")
+""",
+            )
+        ]
+        if personal
+        else []
     ),
     (
         "code",
@@ -254,7 +331,7 @@ def build_kernel_metadata(tier: dict[str, Any]) -> dict:
         "language": "python",
         "is_private": True,
         **_kaggle_meta(tier),
-        "dataset_sources": [SOURCE_DATASET],
+        "dataset_sources": [SOURCE_DATASET, *([PERSONAL_DATASET] if tier.get("personal") else [])],
         "competition_sources": [],
         "kernel_sources": [],
     }
@@ -264,9 +341,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Generate the Kaggle LoRA kernel notebook.")
     ap.add_argument(
         "--accelerator",
-        choices=("gpu", "cpu"),
+        choices=("gpu", "cpu", "personal"),
         default="gpu",
-        help="gpu = qwen3-4b-it-2507 on T4 (authoritative); cpu = qwen3-0.6b, "
+        help="gpu = qwen3-4b-it-2507 on T4 (authoritative); personal = your private chats + voice on T4; cpu = qwen3-0.6b, "
         "smaller train/eval limits that fit a 12h CPU session. TPU is not "
         "offered: the pipeline is PyTorch and has no torch_xla port yet.",
     )

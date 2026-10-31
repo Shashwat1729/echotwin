@@ -184,13 +184,24 @@ def analyze_wave_array(
                 hint="Check the recording level; note your natural speaking volume may be low.",
             )
         )
-    if clipping_fraction >= thr.clip_fraction_warn or peak >= thr.peak_too_loud:
+    if clipping_fraction >= thr.clip_fraction_warn:
         issues.append(
             QualityIssue(
                 code="clipping",
                 severity="error",
                 message="The signal appears clipped.",
                 hint="Re-record with lower input gain to avoid distortion.",
+            )
+        )
+    elif peak >= thr.peak_too_loud:
+        # Lossy codecs (Opus/MP3, e.g. WhatsApp voice notes) overshoot full scale slightly
+        # when decoded; that is not clipping. It is normalised away on import.
+        issues.append(
+            QualityIssue(
+                code="level_hot",
+                severity="info",
+                message="The peak level touches full scale.",
+                hint="Not clipped (few saturated samples); the level is normalised on import.",
             )
         )
     if silence_fraction > thr.silence_fraction_warn:

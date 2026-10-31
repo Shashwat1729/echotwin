@@ -10,11 +10,11 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..exceptions import ArtifactNotFoundError
+from ..exceptions import ArtifactNotFoundError, UploadValidationError
 from ..settings import get_settings
 from ..storage.paths import unique_path
 from ..voice.audio_ingestion import read_audio
-from ..voice.audio_quality import analyze_audio_file, summary_line
+from ..voice.audio_quality import QualityThresholds, analyze_audio_file, summary_line
 from ..voice.capabilities import VoiceBackendCapabilities
 from ..voice.consent import (
     SCOPE_VOICE,
@@ -88,7 +88,9 @@ def inventory_from_profile(prof: VoiceProfile | None) -> list[InventoryItem]:
     ]
 
 
-def plan(backend: str, languages: list[str], max_minutes: float) -> RecordingPlan:
+def plan(
+    backend: str, languages: list[str], max_minutes: float, single_take: bool = False
+) -> RecordingPlan:
     """Generate a recording plan that reflects what the user already recorded.
 
     Passing an empty inventory here would tell a user with three good
@@ -96,8 +98,74 @@ def plan(backend: str, languages: list[str], max_minutes: float) -> RecordingPla
     profile when one exists.
     """
     caps = VoiceBackendCapabilities(**get_backend(backend).capabilities())
-    prefs = RecordingPreferences(languages=languages, max_minutes=float(max_minutes))
+    prefs = RecordingPreferences(
+        languages=languages, max_minutes=float(max_minutes), single_take=single_take
+    )
     return generate_plan(caps, prefs, inventory_from_profile(current_profile()))
+
+
+def _save_long_take(target: Path, clip, language: str, script_id: str) -> RecordingResult:
+    """Cut a long continuous take at pauses into reference-sized clips.
+
+    When the script that was read is known, each clip gets its matching text
+    (script-aligned, not ASR-verified, and labelled as such).
+    """
+    import numpy as np
+
+    from ..voice.preprocessing import write_wav
+    from ..voice.segmentation import assign_transcripts, normalize_peak, split_on_pauses
+
+    x = clip.samples if clip.samples.ndim == 1 else clip.samples.mean(axis=1)
+    x = normalize_peak(np.asarray(x, dtype=np.float32))
+    segments = split_on_pauses(x, clip.sample_rate)
+    if not segments:
+        target.unlink(missing_ok=True)
+        raise UploadValidationError("No speech found in the recording.")
+    script_text = ""
+    if script_id:
+        entry = next((s for s in all_scripts() if s.id == script_id), None)
+        script_text = entry.text if entry else ""
+    texts = assign_transcripts(segments, script_text) if script_text else [""] * len(segments)
+
+    prof = current_profile() or VoiceProfile()
+    worst = "ok"
+    for n, (seg, text) in enumerate(zip(segments, texts, strict=True), 1):
+        seg_path = target.with_name(f"{target.stem}_clip{n:02d}.wav")
+        write_wav(seg_path, x[seg.start : seg.end], clip.sample_rate)
+        report = analyze_audio_file(seg_path)
+        if report.verdict == "fail":
+            worst = "fail"
+        elif report.verdict == "warning" and worst == "ok":
+            worst = "warning"
+        note = (
+            {"verdict": "unverified", "note": "Aligned from the known script by speech-time proportion; not ASR-verified."}
+            if text
+            else None
+        )
+        prof.recordings.append(
+            RecordingEntry(
+                recording_id=seg_path.stem,
+                path=str(seg_path),
+                language=language,
+                script_id=script_id or None,
+                quality_verdict=report.verdict,
+                duration_seconds=report.duration_seconds,
+                sample_rate=report.sample_rate,
+                quality_report=report.model_dump(),
+                category="master_take_clip",
+                has_transcript=bool(text),
+                transcript=text or None,
+                transcript_check=note,
+            )
+        )
+    save_profile(prof)
+    get_store().set_pointer(POINTER, prof.profile_id)
+    return RecordingResult(
+        prof.profile_id,
+        target.stem,
+        worst,
+        f"Long take split into {len(segments)} clips at natural pauses (script-aligned transcripts).",
+    )
 
 
 def save_recording(path: str | Path, language: str, script_id: str = "") -> RecordingResult:
@@ -108,7 +176,9 @@ def save_recording(path: str | Path, language: str, script_id: str = "") -> Reco
     target = unique_path(rec_dir, src.stem[:40] or "recording", src.suffix.lower() or ".wav")
     shutil.copy2(src, target)
     try:
-        read_audio(target)  # validates readability before accepting the file
+        clip = read_audio(target)  # validates readability before accepting the file
+        if clip.samples.shape[0] / clip.sample_rate > QualityThresholds().max_seconds:
+            return _save_long_take(target, clip, language, script_id)
         report = analyze_audio_file(target)
     except Exception:
         target.unlink(missing_ok=True)

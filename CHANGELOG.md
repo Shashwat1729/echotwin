@@ -4,6 +4,16 @@ All notable changes to this project are documented here. Dates are UTC.
 
 ## [Unreleased]
 
+### Added
+
+- Single-take voice recording: long takes are peak-normalised, split at pauses and given script-aligned transcripts.
+- Personalised multilingual master script built from the user's own messages (`scripts/build_personal_script.py`).
+- WhatsApp `msgstore.db` text exporter and a sanitised private Kaggle dataset builder; `personal` Kaggle tier with consent-gated VoxCPM cloning.
+
+### Fixed
+
+- Opus codec overshoot (peak slightly above 1.0) is no longer reported as clipping.
+
 ### Changed
 
 - Architecture overhaul: CLI, API and UI are thin adapters over a shared

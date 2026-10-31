@@ -129,7 +129,7 @@ class TestScriptLibrary:
             "help",
         }
         for s in all_scripts():
-            if s.language is ScriptLanguage.HINGLISH:
+            if s.language is ScriptLanguage.HINGLISH and s.category.value != "master_take":
                 words = {w.strip(".,?!").lower() for w in s.text.split()}
                 hi = {w for w in words if w in _ROMANIZED_HI_MARKERS}
                 en = words & en_words
@@ -139,6 +139,16 @@ class TestScriptLibrary:
                 else:
                     assert len(hi) >= 2 and len(en) >= 1, f"{s.id}: hi={hi} en={en}"
                 assert all(ord(c) < 0x900 for c in s.text), s.id
+
+    def test_master_take_covers_all_languages_with_mood_cues(self):
+        from echotwin.voice.script_library import MASTER_TAKE_ID, get_script
+
+        text = get_script(MASTER_TAKE_ID).text
+        assert any("ऀ" <= c <= "ॿ" for c in text), "needs Hindi (Devanagari)"
+        assert any(w in text.lower() for w in ("hai", "hoon", "yaar")), "needs Hinglish"
+        assert any(w in text.lower() for w in (" the ", " you ", " and ")), "needs English"
+        cues = [ln for ln in text.splitlines() if ln.startswith("[") and ln.endswith("]")]
+        assert len(cues) >= 5, "needs mood cues"
 
     def test_phonetic_categories_covered(self):
         cats = {s.category.value for s in SCRIPT_LIBRARY}

@@ -37,6 +37,8 @@ cloning — with Hindi, English, and Hinglish support.
   built-in n-gram engine and can use a local model or OpenAI-compatible
   server when available.
 
+Using your own chats and voice: see [docs/personal-workflow.md](docs/personal-workflow.md).
+
 ## Quickstart
 
 ```powershell

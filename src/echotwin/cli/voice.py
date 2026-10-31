@@ -72,6 +72,7 @@ def voice_plan(
     languages: str = typer.Option("hi,en"),
     max_minutes: float = typer.Option(20.0),
     profile: str = typer.Option(None, help="voice profile id (uses its inventory)"),
+    single_take: bool = typer.Option(False, help="plan one long master recording only"),
 ) -> None:
     """Generate an adaptive recording plan for the selected backend."""
     from ..voice.capabilities import VoiceBackendCapabilities
@@ -102,6 +103,7 @@ def voice_plan(
     prefs = RecordingPreferences(
         languages=[x for x in languages.split(",") if x],
         max_minutes=max_minutes,
+        single_take=single_take,
         speaker_profile={
             "hi": "native_hindi",
             "en": "indian_english",

@@ -41,9 +41,11 @@ def recordings_df() -> pd.DataFrame:
     return pd.DataFrame(rows, columns=_REC_COLUMNS)
 
 
-def plan_view(backend: str, languages: list[str], minutes: float) -> pd.DataFrame:
+def plan_view(
+    backend: str, languages: list[str], minutes: float, single_take: bool = True
+) -> pd.DataFrame:
     try:
-        plan = voice_service.plan(backend, languages or LANGUAGES, minutes)
+        plan = voice_service.plan(backend, languages or LANGUAGES, minutes, single_take)
     except EchoTwinError as exc:
         return pd.DataFrame(
             [{"Task": f"Cannot build a plan: {exc}", "Language": "-", "Category": "-",
@@ -67,8 +69,14 @@ def plan_view(backend: str, languages: list[str], minutes: float) -> pd.DataFram
     return pd.DataFrame(rows, columns=["Task", "Language", "Category", "Seconds", "Required"])
 
 
-def script_choices(language: str) -> list[str]:
-    return [s.id for s in script_library.scripts_by_language(language)]
+def script_choices(language: str, show_all: bool = False) -> list[str]:
+    """Only the single master take unless the user asks for the full practice library."""
+    master = script_library.MASTER_TAKE_ID
+    if not show_all:
+        return [master]
+    return [master] + [
+        s.id for s in script_library.scripts_by_language(language) if s.id != master
+    ]
 
 
 def show_script(script_id: str | None) -> str:
@@ -188,24 +196,32 @@ def build(ctx: PageContext) -> None:
             backend = gr.Dropdown(backends, value=backends[0], label="Backend")
             langs = gr.CheckboxGroup(LANGUAGES, value=LANGUAGES, label="Languages")
             minutes = gr.Slider(2, 30, value=10, step=1, label="Minutes available")
+            single_take = gr.Checkbox(
+                value=True, label="Single long take (one ~100 s read, recommended)"
+            )
         plan_btn = gr.Button("Show plan")
         plan_table = gr.Dataframe(interactive=False, wrap=True)
-        plan_btn.click(plan_view, [backend, langs, minutes], plan_table)
+        plan_btn.click(plan_view, [backend, langs, minutes, single_take], plan_table)
 
-    gr.Markdown("### 2. Record")
-    with gr.Row():
-        language = gr.Dropdown(LANGUAGES, value="en", label="Language")
-        script = gr.Dropdown(script_choices("en"), label="Script (optional)")
-    prompter = gr.Textbox(label="Read this aloud", interactive=False, lines=3)
+    gr.Markdown(
+        "### 2. Record\n"
+        "Read the whole script below in **one continuous take** (Hindi, English and Hinglish are all in it). "
+        "The `[brackets]` tell you the **mood** for the next lines — do the mood, "
+        "**don't say the bracketed words aloud**."
+    )
+    language = gr.State("hinglish")
+    script = gr.State(script_library.MASTER_TAKE_ID)
+    gr.Textbox(
+        value=show_script(script_library.MASTER_TAKE_ID),
+        label="Your script",
+        interactive=False,
+        lines=24,
+    )
     audio = gr.Audio(sources=["microphone", "upload"], type="filepath", label="Recording")
     save_btn = gr.Button("Save recording", variant="primary")
     badge = gr.HTML()
     rec_status = gr.HTML()
     table = gr.Dataframe(recordings_df(), interactive=False, label="Recordings")
-    language.change(
-        lambda lang: gr.Dropdown(choices=script_choices(lang), value=None), language, script
-    )
-    script.change(show_script, script, prompter)
     save_btn.click(save_rec, [audio, language, script], [badge, table, rec_status, ctx.rail])
 
     gr.Markdown("### 3. Check and choose references")

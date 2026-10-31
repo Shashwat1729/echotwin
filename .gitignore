@@ -98,3 +98,8 @@ htmlcov/
 .superpowers/
 
 !examples/synthetic_multi.zip
+
+# Private: WhatsApp backup key and exported personal chats
+.secrets/
+data/whatsapp_export/
+data/personal/

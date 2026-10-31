@@ -153,10 +153,13 @@ print("echotwin", echotwin.__version__, "from", echotwin.__file__)
         "code",
         ""
         + (
-            """# 1) PERSONAL: your own PII-redacted, anonymised chats (private dataset)
-!mkdir -p /kaggle/working/personal_chats && cp /kaggle/input/echotwin-personal/chats/*_chat.txt /kaggle/working/personal_chats/
-!ls /kaggle/working/personal_chats | wc -l
-!ls /kaggle/input/echotwin-personal/voice | head -3
+            """import glob, os, shutil
+os.makedirs("/kaggle/working/personal_chats", exist_ok=True)
+files = glob.glob("/kaggle/input/echotwin-personal/chats/*_chat.txt")
+for f in files:
+    shutil.copy(f, "/kaggle/working/personal_chats/")
+print("chats:", len(files))
+print(sorted(os.listdir("/kaggle/input/echotwin-personal/voice"))[:3])
 """
             if personal
             else """# 1) Fetch a REAL multi-conversation chat corpus (DailyDialog mirror) and

@@ -87,6 +87,70 @@ def status() -> PersonaStatus:
     return PersonaStatus(ready, author, True, "Voice ready.")
 
 
+def list_voices() -> list[tuple[str, str]]:
+    """Saved voices as ``(label, profile_id)`` pairs for a picker."""
+    from ..voice.metadata import list_profiles
+
+    profiles, _corrupt = list_profiles()
+    return [(f"{p.name} ({len(p.recordings)} clips)", p.profile_id) for p in profiles]
+
+
+def use_voice(profile_id: str | None) -> None:
+    """Make a saved voice the one replies are spoken with."""
+    from ..voice.metadata import load_profile
+
+    if not profile_id:
+        return
+    load_profile(profile_id)  # raises if it does not exist
+    from ..workspace import get_store
+
+    get_store().set_pointer(voice_service.POINTER, profile_id)
+
+
+def add_voice(
+    persona_name: str,
+    audio_paths: list[str],
+    *,
+    acknowledge: bool,
+    learn_text: bool = True,
+) -> str:
+    """Create a voice from uploaded audio (no script needed) and make it current.
+
+    Each upload is validated, cut at pauses when long, and transcribed
+    automatically. When ``learn_text`` is set and no chat text exists yet, the
+    transcripts also become the persona's writing corpus, so a voice alone is
+    enough to start talking. ``acknowledge`` records the one-time statement that
+    the voice is the user's own or they are entitled to use it.
+    """
+    from ..voice.metadata import VoiceProfile, save_profile
+    from ..workspace import get_store
+
+    name = persona_name.strip() or "Persona"
+    paths = [p for p in audio_paths or [] if p]
+    if not paths:
+        raise EchoTwinError("Upload at least one voice recording.")
+    if not acknowledge:
+        raise EchoTwinError(
+            "Tick the box confirming you may use this voice, and will label AI speech."
+        )
+    prof = VoiceProfile(name=name)
+    save_profile(prof)
+    get_store().set_pointer(voice_service.POINTER, prof.profile_id)
+    for p in paths:
+        voice_service.save_recording(p, "auto")
+    voice_service.transcribe_missing()
+    voice_service.select_refs(prefer_transcript=True)
+    if not voice_service.consent_status().granted:
+        voice_service.grant_consent(name)
+    prof = voice_service.current_profile()
+    transcripts = [r.transcript for r in (prof.recordings if prof else []) if r.transcript]
+    note = f"Voice '{name}' ready from {len(paths)} upload(s)."
+    if learn_text and transcripts and not get_store().pointer("current_dataset"):
+        create_from_text(name, "\n".join(transcripts))
+        note += " Their speech was transcribed and used to learn how they talk."
+    return note
+
+
 def listen(audio_path: str | Path, language: str | None = None) -> str:
     """Speech to text for the user's spoken turn."""
     return transcribe(audio_path, language)

@@ -218,7 +218,9 @@ for name in ("plain", "style_rag", "lora"):
                 """# 5) VOICE CLONING (VoxCPM). Runs only if voice consent was recorded in the
 #    dataset (granted by the speaker in the EchoTwin studio) - otherwise skipped.
 import json, pathlib, shutil, subprocess, sys
-vin = pathlib.Path("/kaggle/input/echotwin-personal")
+import glob
+_hits = glob.glob("/kaggle/input/**/voice/manifest.json", recursive=True)
+vin = pathlib.Path(_hits[0]).parent.parent if _hits else pathlib.Path("/kaggle/input/echotwin-personal")
 consent = vin / "voice_consent.json"
 if not consent.exists():
     print("SKIPPED: no voice_consent.json in the dataset - voice consent has not been granted.")

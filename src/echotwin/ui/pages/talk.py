@@ -20,6 +20,29 @@ def make_persona(name: str, text: str) -> str:
     return render.callout("ok", f"Persona '{author}' is ready. Start talking below.")
 
 
+def make_voice(name: str, files, ack: bool):
+    paths = [f if isinstance(f, str) else getattr(f, "name", str(f)) for f in (files or [])]
+    try:
+        note = persona.add_voice(name, paths, acknowledge=bool(ack))
+    except Exception as exc:
+        return warn(exc), gr.update()
+    labels = [label for label, _ in persona.list_voices()]
+    return render.callout("ok", note), gr.update(
+        choices=labels, value=labels[-1] if labels else None
+    )
+
+
+def pick_voice(label: str | None) -> str:
+    if not label:
+        return ""
+    ids = {lbl: pid for lbl, pid in persona.list_voices()}
+    try:
+        persona.use_voice(ids.get(label))
+    except Exception as exc:
+        return warn(exc)
+    return render.callout("ok", f"Now speaking as: {label}")
+
+
 def persona_note() -> str:
     st = persona.status()
     who = st.author or "nobody yet"
@@ -75,6 +98,27 @@ def build(ctx: PageContext) -> None:
         make = gr.Button("Create persona")
         made = gr.HTML()
         make.click(make_persona, [name, text], made)
+    with gr.Accordion("2. Add their voice (upload audio, no script needed)", open=False):
+        vname = gr.Textbox(label="Name for this voice")
+        vfiles = gr.File(
+            label="Voice recordings (any language; transcribed automatically)",
+            file_count="multiple",
+            type="filepath",
+            file_types=["audio"],
+        )
+        vack = gr.Checkbox(
+            label="This is my own voice, or I am entitled to use it, and I will label AI speech as AI.",
+            value=False,
+        )
+        vbtn = gr.Button("Create voice")
+        vdone = gr.HTML()
+        vpick = gr.Dropdown(
+            [label for label, _ in persona.list_voices()],
+            label="Saved voices (pick who speaks)",
+            value=None,
+        )
+        vbtn.click(make_voice, [vname, vfiles, vack], [vdone, vpick])
+        vpick.change(pick_voice, [vpick], vdone)
     gr.HTML(persona_note())
     choices = engine_choices()
     with gr.Row():

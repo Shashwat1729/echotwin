@@ -176,7 +176,9 @@ def _auto_transcript(path: Path, language: str) -> tuple[str | None, dict | None
     from ..voice.transcription import transcribe
 
     try:
-        text = transcribe(path, None if language in ("", "hinglish", "mixed") else language[:2])
+        text = transcribe(
+            path, None if language in ("", "auto", "hinglish", "mixed") else language[:2]
+        )
     except Exception:
         return None, None
     if not text:
@@ -185,6 +187,24 @@ def _auto_transcript(path: Path, language: str) -> tuple[str | None, dict | None
         "verdict": "asr",
         "note": "Transcribed automatically (faster-whisper); not hand-checked.",
     }
+
+
+def transcribe_missing() -> int:
+    """Auto-transcribe clips that have no transcript yet. Returns how many were filled."""
+    prof = current_profile()
+    if prof is None:
+        return 0
+    filled = 0
+    for rec in prof.recordings:
+        if rec.transcript or not rec.path or not Path(rec.path).exists():
+            continue
+        text, check = _auto_transcript(Path(rec.path), rec.language)
+        if text:
+            rec.transcript, rec.has_transcript, rec.transcript_check = text, True, check
+            filled += 1
+    if filled:
+        save_profile(prof)
+    return filled
 
 
 def save_recording(path: str | Path, language: str, script_id: str = "") -> RecordingResult:

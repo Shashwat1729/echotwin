@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -85,7 +86,7 @@ def _cells(tier: dict[str, Any]) -> list[tuple[str, str]]:
     model = tier["model"]
     personal = bool(tier.get("personal"))
     corpus = "personal_chats" if personal else "sample_corpus/daily_dialog/chats"
-    author = '--author "Me"' if personal else ""
+    author = f'--author "{os.environ.get("ECHOTWIN_AUTHOR", "Me")}"' if personal else ""
     return [
         (
             "markdown",

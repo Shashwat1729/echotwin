@@ -106,6 +106,24 @@ package from the private Kaggle dataset `shashwat1729/echotwin-source`, fetches
 the corpus itself, trains a LoRA adapter, and evaluates **base vs style_rag vs
 LoRA vs style_rag+LoRA** on the same held-out prompts.
 
+#### Result on a real personal chat export (single seed)
+
+Qwen3-1.7B, 2000 training examples, 2 epochs, T4; eval loss 4.63 -> 3.40.
+The chat content itself is never published; only these aggregates are.
+
+| Method | style cos | length ratio | distinct | uptake |
+|---|---|---|---|---|
+| base | 0.754 | 3.41 | 1.00 | 0.303 |
+| style_profile (prompt only) | 0.855 | 1.26 | 0.97 | 0.423 |
+| style_rag | 0.851 | 1.37 | 0.99 | 0.384 |
+| ngram | 0.634 | 0.60 | 0.91 | 0.091 |
+| LoRA | 0.768 | 0.94 | 0.82 | 0.086 |
+| style_rag + LoRA | 0.773 | 1.06 | 0.93 | 0.114 |
+
+LoRA matches message length best but is more generic; prompt-only style profile
+and retrieval score higher on style similarity. Differences are small and come
+from one seed, so treat the ranking as indicative, not conclusive.
+
 ---
 
 ## 2. Voice — speaker similarity, measured on real human speech

@@ -12,7 +12,7 @@ Outputs (all under ``--out``, which is git-ignored):
 
 Usage:
   python scripts/export_whatsapp_db.py --db data/whatsapp_export/raw/msgstore.db \
-      --me "Me" [--contacts contacts.tsv | --adb-contacts]
+      --me "Your Name" [--contacts contacts.tsv | --adb-contacts]
 """
 
 from __future__ import annotations

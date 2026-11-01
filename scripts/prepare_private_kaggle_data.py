@@ -48,7 +48,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--chats", type=Path, default=Path("data/whatsapp_export/chats"))
     ap.add_argument("--out", type=Path, default=Path("data/personal/kaggle"))
-    ap.add_argument("--me", default="Me")
+    ap.add_argument("--me", default="Me", help="your display name in the export")
     args = ap.parse_args()
 
     cfg = RedactionConfig(enabled=True)
